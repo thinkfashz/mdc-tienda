@@ -455,3 +455,29 @@ function toast(msg) {
 }
 
 updateCartCount();
+
+/* ---------- capa visual premium + app shell ---------- */
+(() => {
+  if (!document.querySelector('link[data-mdc-premium]')) {
+    const css = document.createElement('link');
+    css.rel = 'stylesheet';
+    css.href = 'premium-mobile.css?v=3';
+    css.dataset.mdcPremium = '1';
+    document.head.appendChild(css);
+  }
+
+  if (!document.querySelector('link[rel="manifest"]')) {
+    const manifest = document.createElement('link');
+    manifest.rel = 'manifest';
+    manifest.href = 'manifest.webmanifest?v=2';
+    document.head.appendChild(manifest);
+  }
+
+  if (!document.querySelector('script[data-mdc-mobile-shell]')) {
+    const shell = document.createElement('script');
+    shell.src = 'mobile-shell.js?v=3';
+    shell.async = true;
+    shell.dataset.mdcMobileShell = '1';
+    document.head.appendChild(shell);
+  }
+})();
