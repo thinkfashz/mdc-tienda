@@ -3,7 +3,27 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Catálogo — MDC Ferretería Linares</title>
+<title>Catálogo | MDC Ferretería Linares</title>
+<meta name="description" content="Explora herramientas, materiales eléctricos, construcción y ferretería general en MDC Ferretería Linares.">
+<meta name="theme-color" content="#090909">
+<link rel="canonical" href="https://mdc-tienda.vercel.app/catalogo.html">
+<meta property="og:locale" content="es_CL">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="MDC Ferretería">
+<meta property="og:title" content="Catálogo | MDC Ferretería Linares">
+<meta property="og:description" content="Herramientas y materiales para tu proyecto. Revisa el catálogo de MDC Ferretería en Linares.">
+<meta property="og:url" content="https://mdc-tienda.vercel.app/catalogo.html">
+<meta property="og:image" content="https://res.cloudinary.com/disghf6xc/image/upload/v1788718732/mdc-share-preview-v1.png">
+<meta property="og:image:secure_url" content="https://res.cloudinary.com/disghf6xc/image/upload/v1788718732/mdc-share-preview-v1.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="MDC Ferretería Linares — pantalla de carga de la tienda">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Catálogo | MDC Ferretería Linares">
+<meta name="twitter:description" content="Herramientas y materiales para tu proyecto en Linares.">
+<meta name="twitter:image" content="https://res.cloudinary.com/disghf6xc/image/upload/v1788718732/mdc-share-preview-v1.png">
+<meta name="twitter:image:alt" content="MDC Ferretería Linares — pantalla de carga de la tienda">
 <link rel="icon" type="image/png" href="assets/logo-claro.png">
 <link rel="stylesheet" href="styles.css?v=2">
 </head>
@@ -131,14 +151,12 @@
     await LiveCatalog.load();
     rebuildCats();
     renderPage();
-    // stock en vivo cada 20s
     setInterval(async () => {
       await LiveCatalog.refreshStock(LiveCatalog.products.map(p => p.id));
     }, REFRESH_MS);
   }
 
   LiveCatalog.onChange(() => {
-    // re-render suave manteniendo página/filtro
     rebuildCats();
     renderPage();
   });
