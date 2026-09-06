@@ -1,5 +1,5 @@
 /* MDC Ferretería · PWA rápida para app instalada */
-const CACHE = "mdc-store-shell-v13";
+const CACHE = "mdc-store-shell-v14";
 const CACHE_PREFIX = "mdc-store-shell-";
 
 const CORE = [
@@ -66,12 +66,34 @@ async function fetchAndCache(request, cacheMode = "no-store") {
   return response;
 }
 
-async function staleWhileRevalidate(request, event) {
+async function networkFirst(request, event, timeoutMs = 900, fallbackRequest = null) {
+  const network = fetchAndCache(request).catch(() => null);
+  if (event) event.waitUntil(network.then(() => undefined));
+
+  const quick = await Promise.race([
+    network,
+    new Promise(resolve => setTimeout(() => resolve(null), timeoutMs)),
+  ]);
+  if (quick) return quick;
+
   const cached = await cacheMatch(request);
-  const refresh = fetchAndCache(request).catch(() => null);
-  if (event) event.waitUntil(refresh);
   if (cached) return cached;
-  return (await refresh) || Response.error();
+
+  const late = await network;
+  if (late) return late;
+
+  if (fallbackRequest) {
+    const fallback = await cacheMatch(fallbackRequest);
+    if (fallback) return fallback;
+  }
+  return Response.error();
+}
+
+async function cacheFirst(request) {
+  const cached = await cacheMatch(request);
+  if (cached) return cached;
+  try { return await fetchAndCache(request, "default"); }
+  catch (_) { return Response.error(); }
 }
 
 self.addEventListener("install", event => {
@@ -112,27 +134,15 @@ self.addEventListener("fetch", event => {
   }
 
   if (req.mode === "navigate") {
-    event.respondWith((async () => {
-      const cached = await cacheMatch(req);
-      const refresh = fetchAndCache(req).catch(() => null);
-      event.waitUntil(refresh);
-      return cached
-        || (await refresh)
-        || (await cacheMatch(new Request(new URL("./index.html", self.location).toString())))
-        || Response.error();
-    })());
+    const fallback = new Request(new URL("./index.html", self.location).toString());
+    event.respondWith(networkFirst(req, event, 1000, fallback));
     return;
   }
 
   if (path.endsWith("/catalog.snapshot.json") || /\.(?:js|css|webmanifest)$/i.test(path)) {
-    event.respondWith(staleWhileRevalidate(req, event));
+    event.respondWith(networkFirst(req, event, 800));
     return;
   }
 
-  event.respondWith((async () => {
-    const cached = await cacheMatch(req);
-    if (cached) return cached;
-    try { return await fetchAndCache(req, "default"); }
-    catch (_) { return Response.error(); }
-  })());
+  event.respondWith(cacheFirst(req));
 });
