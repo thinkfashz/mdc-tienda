@@ -1,4 +1,4 @@
-/* MDC Ferretería · Splash premium 2s · Assets servidos por Cloudinary */
+/* MDC Ferretería · Splash premium robusto */
 (() => {
   const MEDIA = Object.freeze({
     logo: 'https://res.cloudinary.com/disghf6xc/image/upload/v1788685244/mdc-premium-logo.png',
@@ -14,20 +14,21 @@
 
   window.MDC_MEDIA = MEDIA;
 
-  const SESSION_KEY = 'mdc-premium-splash-v2';
+  const SESSION_KEY = 'mdc-premium-splash-v3';
   const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  const SPLASH_MS = reduceMotion ? 650 : 2000;
+  const SPLASH_MS = reduceMotion ? 520 : 2000;
+  const HARD_FAILSAFE_MS = 3400;
 
-  function loadScriptOnce(src, datasetKey) {
-    if (document.querySelector(`script[data-${datasetKey}]`)) return;
+  function loadScriptOnce(src, dataName) {
+    if (document.querySelector(`script[data-${dataName}]`)) return;
     const script = document.createElement('script');
     script.src = src;
     script.defer = true;
-    script.setAttribute(`data-${datasetKey}`, '1');
+    script.setAttribute(`data-${dataName}`, '1');
     document.head.appendChild(script);
   }
 
-  function loadMarketplaceLayer() {
+  function loadLayers() {
     if (!document.querySelector('link[data-mdc-marketplace]')) {
       const css = document.createElement('link');
       css.rel = 'stylesheet';
@@ -35,17 +36,6 @@
       css.dataset.mdcMarketplace = '1';
       document.head.appendChild(css);
     }
-
-    if (!document.querySelector('script[data-mdc-marketplace]')) {
-      const script = document.createElement('script');
-      script.src = 'marketplace-experience.js?v=1';
-      script.defer = true;
-      script.dataset.mdcMarketplace = '1';
-      document.head.appendChild(script);
-    }
-  }
-
-  function loadContactLayer() {
     if (!document.querySelector('link[data-mdc-contact]')) {
       const css = document.createElement('link');
       css.rel = 'stylesheet';
@@ -54,21 +44,10 @@
       document.head.appendChild(css);
     }
 
-    if (!document.querySelector('script[data-mdc-contact]')) {
-      const script = document.createElement('script');
-      script.src = 'social-contact.js?v=1';
-      script.defer = true;
-      script.dataset.mdcContact = '1';
-      document.head.appendChild(script);
-    }
-  }
-
-  function loadIntegrityLayer() {
-    loadScriptOnce('app-integrity.js?v=1', 'mdc-integrity');
-  }
-
-  function loadUpdateLayer() {
-    loadScriptOnce('app-update.js?v=1', 'mdc-app-update');
+    loadScriptOnce('marketplace-experience.js?v=1', 'mdc-marketplace');
+    loadScriptOnce('social-contact.js?v=1', 'mdc-contact');
+    loadScriptOnce('app-integrity.js?v=2', 'mdc-integrity');
+    loadScriptOnce('app-update.js?v=2', 'mdc-app-update');
   }
 
   function ensureBrandStyle() {
@@ -86,17 +65,14 @@
         border-radius:0 !important;
         background:transparent !important;
       }
-      .footer-logo.mdc-brand-logo{
-        max-width:150px;
-        height:auto;
-      }
+      .footer-logo.mdc-brand-logo{max-width:150px;height:auto}
     `;
     document.head.appendChild(style);
   }
 
   function setPremiumBrandImages() {
     document.querySelectorAll('.nav-logo img, .footer-logo, .mobile-install-banner img').forEach(img => {
-      img.src = MEDIA.logo;
+      if (img.src !== MEDIA.logo) img.src = MEDIA.logo;
       img.alt = 'MDC Ferretería';
       img.classList.add('mdc-brand-logo');
     });
@@ -107,7 +83,7 @@
   }
 
   function safeSessionSet(key, value) {
-    try { sessionStorage.setItem(key, value); } catch (_) { /* no-op */ }
+    try { sessionStorage.setItem(key, value); } catch (_) {}
   }
 
   function image(src, className, alt = '') {
@@ -117,28 +93,46 @@
     img.alt = alt;
     img.decoding = 'async';
     img.draggable = false;
-    img.addEventListener('error', () => img.hidden = true, { once: true });
+    img.addEventListener('error', () => { img.hidden = true; }, { once: true });
     return img;
+  }
+
+  function dismissSplash(splash, immediate = false) {
+    if (!splash) splash = document.querySelector('.mdc-splash');
+    document.body?.classList.remove('mdc-splash-lock');
+    if (!splash) return;
+
+    if (immediate) {
+      splash.remove();
+      return;
+    }
+
+    splash.classList.add('is-exiting');
+    window.setTimeout(() => splash.remove(), 360);
   }
 
   function animateTruck(splash) {
     if (reduceMotion) return;
-    const stage = splash.querySelector('.mdc-splash-stage');
-    const truck = splash.querySelector('.mdc-splash-truck');
-    if (!stage || !truck || !truck.animate) return;
+    try {
+      const stage = splash.querySelector('.mdc-splash-stage');
+      const truck = splash.querySelector('.mdc-splash-truck');
+      if (!stage || !truck || typeof truck.animate !== 'function') return;
 
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      const travel = Math.max(0, stage.clientWidth - truck.clientWidth - 4);
-      truck.animate([
-        { transform: 'translate3d(-8px, 0, 0)' },
-        { transform: `translate3d(${travel}px, 0, 0)` }
-      ], {
-        duration: 1720,
-        delay: 130,
-        easing: 'cubic-bezier(.16,.72,.2,1)',
-        fill: 'forwards'
-      });
-    }));
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        try {
+          const travel = Math.max(0, stage.clientWidth - truck.clientWidth - 4);
+          truck.animate([
+            { transform: 'translate3d(-8px,0,0)' },
+            { transform: `translate3d(${travel}px,0,0)` }
+          ], {
+            duration: 1720,
+            delay: 130,
+            easing: 'cubic-bezier(.16,.72,.2,1)',
+            fill: 'forwards'
+          });
+        } catch (_) {}
+      }));
+    } catch (_) {}
   }
 
   function buildTruck() {
@@ -156,13 +150,13 @@
   function buildSplash() {
     const splash = document.createElement('div');
     splash.className = 'mdc-splash';
+    splash.dataset.startedAt = String(Date.now());
     splash.setAttribute('role', 'status');
     splash.setAttribute('aria-live', 'polite');
     splash.setAttribute('aria-label', 'Cargando MDC Ferretería');
 
     const inner = document.createElement('div');
     inner.className = 'mdc-splash-inner';
-
     const logo = image(MEDIA.logo, 'mdc-splash-logo', 'MDC Ferretería');
 
     const stage = document.createElement('div');
@@ -171,7 +165,6 @@
 
     const track = document.createElement('div');
     track.className = 'mdc-splash-track';
-
     const mask = document.createElement('div');
     mask.className = 'mdc-splash-bar-mask';
     mask.append(image(MEDIA.bar, 'mdc-splash-bar-art'));
@@ -180,7 +173,6 @@
 
     const loading = image(MEDIA.loading, 'mdc-splash-loading-text', 'Cargando catálogo…');
     const subtitle = image(MEDIA.subtitle, 'mdc-splash-subtitle', 'Las mejores herramientas más cerca de ti');
-
     const badges = document.createElement('div');
     badges.className = 'mdc-splash-badges';
     badges.setAttribute('aria-hidden', 'true');
@@ -196,49 +188,67 @@
   }
 
   function showSplash() {
-    if (safeSessionGet(SESSION_KEY) === '1') return;
-    if (document.querySelector('.mdc-splash')) return;
+    const stale = document.querySelector('.mdc-splash');
+    if (stale) dismissSplash(stale, true);
+    if (safeSessionGet(SESSION_KEY) === '1') {
+      document.body?.classList.remove('mdc-splash-lock');
+      return;
+    }
 
-    safeSessionSet(SESSION_KEY, '1');
-    const splash = buildSplash();
-    document.body.classList.add('mdc-splash-lock');
-    document.body.appendChild(splash);
+    let splash;
+    try {
+      safeSessionSet(SESSION_KEY, '1');
+      splash = buildSplash();
+      document.body.classList.add('mdc-splash-lock');
+      document.body.appendChild(splash);
+    } catch (_) {
+      document.body?.classList.remove('mdc-splash-lock');
+      return;
+    }
+
+    // Los temporizadores se arman ANTES de cualquier animación para garantizar salida.
+    const exitTimer = window.setTimeout(() => dismissSplash(splash, false), SPLASH_MS);
+    const hardTimer = window.setTimeout(() => dismissSplash(splash, true), HARD_FAILSAFE_MS);
+
     animateTruck(splash);
 
-    const exitTimer = window.setTimeout(() => {
-      splash.classList.add('is-exiting');
-      document.body.classList.remove('mdc-splash-lock');
-    }, SPLASH_MS);
-
-    const removeTimer = window.setTimeout(() => {
-      splash.remove();
-    }, SPLASH_MS + 380);
-
-    window.addEventListener('pagehide', () => {
+    const cleanupOnHide = () => {
       clearTimeout(exitTimer);
-      clearTimeout(removeTimer);
-      document.body.classList.remove('mdc-splash-lock');
-    }, { once: true });
+      clearTimeout(hardTimer);
+      dismissSplash(splash, true);
+    };
+    window.addEventListener('pagehide', cleanupOnHide, { once: true });
+  }
+
+  function recoverFromFrozenSplash() {
+    const splash = document.querySelector('.mdc-splash');
+    if (!splash) {
+      document.body?.classList.remove('mdc-splash-lock');
+      return;
+    }
+    const startedAt = Number(splash.dataset.startedAt || 0);
+    if (!startedAt || Date.now() - startedAt > HARD_FAILSAFE_MS) dismissSplash(splash, true);
   }
 
   function boot() {
-    loadIntegrityLayer();
-    loadUpdateLayer();
-    loadMarketplaceLayer();
-    loadContactLayer();
     ensureBrandStyle();
     setPremiumBrandImages();
     showSplash();
 
-    // Conserva la marca premium aunque otras capas re-rendericen header/footer/banner.
+    // Carga lógica secundaria después de asegurar la salida del loader.
+    window.setTimeout(loadLayers, 80);
+
     const observer = new MutationObserver(() => setPremiumBrandImages());
     observer.observe(document.body, { childList: true, subtree: true });
     window.setTimeout(() => observer.disconnect(), 7000);
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', boot, { once: true });
-  } else {
-    boot();
-  }
+  window.addEventListener('pageshow', recoverFromFrozenSplash);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') recoverFromFrozenSplash();
+  });
+  window.setTimeout(recoverFromFrozenSplash, HARD_FAILSAFE_MS + 250);
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
+  else boot();
 })();
