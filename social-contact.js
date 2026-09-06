@@ -1,4 +1,4 @@
-/* MDC Ferretería · Contacto público y redes verificadas */
+/* MDC Ferretería · Contacto público, redes y reparaciones runtime */
 (() => {
   const CONTACT = Object.freeze({
     name: 'Ferretería MDC',
@@ -85,10 +85,83 @@
     document.head.appendChild(schema);
   }
 
+  /*
+   * Repara el contador cuando quedaron IDs antiguos guardados en localStorage.
+   * El contador representa solo productos que la tienda realmente puede resolver.
+   * Si el catálogo en red confirma que un ID ya no existe, se limpia definitivamente.
+   */
+  function resolvedCart() {
+    if (typeof window.getCart !== 'function') return [];
+    const raw = window.getCart();
+    if (!Array.isArray(raw)) return [];
+
+    if (!window.LiveCatalog?.loaded || !Array.isArray(window.LiveCatalog.products) || !window.LiveCatalog.products.length) {
+      return raw;
+    }
+
+    return raw.filter(item => !!window.LiveCatalog.byId?.(item.id));
+  }
+
+  function resolvedCartCount() {
+    return resolvedCart().reduce((sum, item) => sum + Math.max(0, Number(item.qty) || 0), 0);
+  }
+
+  function repairCartCounter() {
+    const count = resolvedCartCount();
+    document.querySelectorAll('[data-cart-count]').forEach(el => {
+      const visible = count > 0;
+      el.textContent = visible ? String(count) : '';
+      el.classList.toggle('is-visible', visible);
+      el.hidden = !visible;
+      el.style.display = visible ? '' : 'none';
+      el.setAttribute('aria-hidden', visible ? 'false' : 'true');
+    });
+  }
+
+  function pruneStaleCartWhenAuthoritative() {
+    if (!window.LiveCatalog?.loaded || window.LiveCatalog.source !== 'network') return;
+    if (typeof window.getCart !== 'function') return;
+
+    const raw = window.getCart();
+    const valid = raw.filter(item => !!window.LiveCatalog.byId?.(item.id));
+    if (valid.length === raw.length) return;
+
+    try {
+      localStorage.setItem('mdc-cart', JSON.stringify(valid));
+    } catch (_) {}
+  }
+
+  function installCartRepair() {
+    if (typeof window.cartCount === 'function') window.cartCount = resolvedCartCount;
+    if (typeof window.updateCartCount === 'function') window.updateCartCount = repairCartCounter;
+
+    const sync = () => {
+      pruneStaleCartWhenAuthoritative();
+      repairCartCounter();
+    };
+
+    sync();
+    if (window.LiveCatalog?.onChange) window.LiveCatalog.onChange(sync);
+    window.addEventListener('storage', event => {
+      if (event.key === 'mdc-cart') sync();
+    });
+  }
+
+  /* Fuerza a la PWA instalada a comprobar la versión nueva del service worker. */
+  function forceServiceWorkerUpdate() {
+    if (!('serviceWorker' in navigator) || !/^https?:$/.test(location.protocol)) return;
+    navigator.serviceWorker
+      .register('sw.js?v=6', { scope: './', updateViaCache: 'none' })
+      .then(registration => registration.update().catch(() => null))
+      .catch(() => null);
+  }
+
   function boot() {
     patchWhatsappLinks();
     injectContactSocials();
     injectStructuredData();
+    installCartRepair();
+    forceServiceWorkerUpdate();
 
     const observer = new MutationObserver(mutations => {
       for (const mutation of mutations) {
@@ -97,6 +170,7 @@
         });
       }
       injectContactSocials();
+      repairCartCounter();
     });
     observer.observe(document.body, { childList: true, subtree: true });
   }
