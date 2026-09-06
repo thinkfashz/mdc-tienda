@@ -2,7 +2,11 @@
 (() => {
   const MOBILE_MAX = 820;
   const WA = '56979151979';
+  const API_PUBLIC = 'https://mdc-app-dun.vercel.app/api/public';
+  const CONSENT_KEY = 'mdc-consent-v1';
+  const ANALYTICS_SESSION_KEY = 'mdc-analytics-session-v1';
   let deferredInstallPrompt = null;
+  let pageviewSent = false;
 
   const icons = {
     home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 10 9-7 9 7v9a2 2 0 0 1-2 2h-4v-7H9v7H5a2 2 0 0 1-2-2z"/></svg>',
@@ -129,7 +133,7 @@
   function setupServiceWorker() {
     if (!('serviceWorker' in navigator) || !/^https?:$/.test(location.protocol)) return;
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('sw.js?v=10', { scope: './', updateViaCache: 'none' }).catch(() => null);
+      navigator.serviceWorker.register('sw.js?v=12', { scope: './', updateViaCache: 'none' }).catch(() => null);
     }, { once: true });
   }
 
@@ -140,6 +144,174 @@
     window.addEventListener('offline', sync);
   }
 
+  function readConsent() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(CONSENT_KEY) || 'null');
+      return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function saveConsent(analytics) {
+    const consent = {
+      essential: true,
+      analytics: Boolean(analytics),
+      updatedAt: new Date().toISOString(),
+      version: 1,
+    };
+    try { localStorage.setItem(CONSENT_KEY, JSON.stringify(consent)); } catch (_) {}
+    try { document.dispatchEvent(new CustomEvent('mdc:consent-updated', { detail: consent })); } catch (_) {}
+    return consent;
+  }
+
+  function ensureConsentStyles() {
+    if (document.getElementById('mdc-consent-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'mdc-consent-styles';
+    style.textContent = `
+      .mdc-consent[hidden]{display:none!important}.mdc-consent{position:fixed;inset:0;z-index:90000;display:grid;align-items:end;padding:14px;background:rgba(0,0,0,.55);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+      .mdc-consent-card{width:min(100%,610px);margin:0 auto;padding:18px;border-radius:26px;border:1px solid rgba(255,255,255,.11);background:linear-gradient(180deg,rgba(27,27,27,.98),rgba(12,12,12,.98));box-shadow:0 28px 90px rgba(0,0,0,.62);color:#fff}
+      .mdc-consent-top{display:flex;gap:13px;align-items:flex-start}.mdc-consent-logo{width:58px;height:58px;flex:0 0 auto;object-fit:contain;border-radius:16px;background:#090909;padding:5px}.mdc-consent-copy{min-width:0}.mdc-consent-kicker{color:#ff8730;font-size:9px;font-weight:900;letter-spacing:.15em;text-transform:uppercase}.mdc-consent h2{margin:4px 0 7px;font-size:19px;line-height:1.08}.mdc-consent p{margin:0;color:#b9b2a9;font-size:12px;line-height:1.52}
+      .mdc-consent-details{margin:14px 0;padding:12px 13px;border-radius:16px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.065);display:grid;gap:8px}.mdc-consent-row{display:flex;gap:9px;align-items:flex-start;color:#c9c2b9;font-size:11px;line-height:1.4}.mdc-consent-dot{width:7px;height:7px;margin-top:4px;border-radius:50%;background:#ff7a1a;box-shadow:0 0 0 4px rgba(255,122,26,.09);flex:0 0 auto}
+      .mdc-consent-actions{display:grid;grid-template-columns:.92fr 1.08fr;gap:9px;margin-top:14px}.mdc-consent-actions button{min-height:49px;border:0;border-radius:15px;font:inherit;font-size:12px;font-weight:850;cursor:pointer}.mdc-consent-essential{background:rgba(255,255,255,.075);color:#eee8e0}.mdc-consent-accept{background:linear-gradient(135deg,#ff7412,#ff9b45);color:#13100d;box-shadow:0 8px 24px rgba(255,112,0,.2)}
+      .mdc-privacy-link{margin-left:10px;border:0;background:transparent;color:inherit;opacity:.64;font:inherit;font-size:11px;text-decoration:underline;text-underline-offset:3px;cursor:pointer}.mdc-privacy-link:hover{opacity:1}
+      @media(min-width:821px){.mdc-consent{align-items:center}.mdc-consent-card{padding:22px}.mdc-consent h2{font-size:22px}}
+      @media(max-width:390px){.mdc-consent{padding:9px}.mdc-consent-card{padding:15px;border-radius:22px}.mdc-consent-actions{grid-template-columns:1fr}.mdc-consent-logo{width:50px;height:50px}}
+    `;
+    document.head.appendChild(style);
+  }
+
+  function getAnalyticsSessionId() {
+    try {
+      let id = sessionStorage.getItem(ANALYTICS_SESSION_KEY);
+      if (id) return id;
+      id = globalThis.crypto?.randomUUID?.() || `s_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+      sessionStorage.setItem(ANALYTICS_SESSION_KEY, id);
+      return id;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function sendAnalytics(event, metadata = null) {
+    const consent = readConsent();
+    if (!consent?.analytics) return;
+
+    const payload = JSON.stringify({
+      event,
+      path: `${location.pathname}${location.search}`.slice(0, 300),
+      sessionId: getAnalyticsSessionId(),
+      referrer: document.referrer ? document.referrer.slice(0, 500) : null,
+      metadata,
+    });
+
+    const url = `${API_PUBLIC}/analytics`;
+    try {
+      if (navigator.sendBeacon) {
+        const blob = new Blob([payload], { type: 'application/json' });
+        navigator.sendBeacon(url, blob);
+        return;
+      }
+    } catch (_) {}
+
+    fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: payload,
+      keepalive: true,
+    }).catch(() => null);
+  }
+
+  function trackPageView() {
+    if (pageviewSent || !readConsent()?.analytics) return;
+    pageviewSent = true;
+    sendAnalytics('pageview', {
+      standalone: isStandalone(),
+      online: navigator.onLine,
+    });
+  }
+
+  function buildConsent() {
+    let sheet = document.querySelector('.mdc-consent');
+    if (sheet) return sheet;
+
+    sheet = document.createElement('div');
+    sheet.className = 'mdc-consent';
+    sheet.hidden = true;
+    sheet.setAttribute('role', 'dialog');
+    sheet.setAttribute('aria-modal', 'true');
+    sheet.setAttribute('aria-label', 'Preferencias de privacidad');
+    sheet.innerHTML = `
+      <div class="mdc-consent-card">
+        <div class="mdc-consent-top">
+          <img class="mdc-consent-logo" src="${window.MDC_MEDIA?.logo || 'assets/logo-claro.png'}" alt="MDC Ferretería">
+          <div class="mdc-consent-copy">
+            <span class="mdc-consent-kicker">Privacidad y rendimiento</span>
+            <h2>Tu tienda rápida, con tus preferencias claras</h2>
+            <p>Usamos almacenamiento local y caché esenciales para mantener el carrito, recordar la app y acelerar el catálogo. Si aceptas, también registramos estadísticas anónimas para saber qué partes del sitio funcionan mejor.</p>
+          </div>
+        </div>
+        <div class="mdc-consent-details">
+          <div class="mdc-consent-row"><span class="mdc-consent-dot"></span><span><b>Esenciales:</b> carrito, preferencias de la app, caché y funcionamiento offline.</span></div>
+          <div class="mdc-consent-row"><span class="mdc-consent-dot"></span><span><b>Estadísticas opcionales:</b> páginas visitadas y sesión anónima. No guardamos IP ni información sensible.</span></div>
+        </div>
+        <div class="mdc-consent-actions">
+          <button type="button" class="mdc-consent-essential" data-consent-essential>Solo esenciales</button>
+          <button type="button" class="mdc-consent-accept" data-consent-accept>Aceptar estadísticas</button>
+        </div>
+      </div>`;
+    document.body.appendChild(sheet);
+
+    sheet.querySelector('[data-consent-essential]')?.addEventListener('click', () => {
+      saveConsent(false);
+      sheet.hidden = true;
+    });
+    sheet.querySelector('[data-consent-accept]')?.addEventListener('click', () => {
+      saveConsent(true);
+      sheet.hidden = true;
+      trackPageView();
+    });
+
+    return sheet;
+  }
+
+  function openConsent(force = false) {
+    ensureConsentStyles();
+    const existing = readConsent();
+    if (existing && !force) {
+      trackPageView();
+      return;
+    }
+    buildConsent().hidden = false;
+  }
+
+  function injectPrivacyLink() {
+    const footer = document.querySelector('.footer');
+    if (!footer || footer.querySelector('.mdc-privacy-link')) return;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'mdc-privacy-link';
+    button.textContent = 'Privacidad';
+    button.addEventListener('click', () => openConsent(true));
+    footer.appendChild(button);
+  }
+
+  function setupConsent() {
+    ensureConsentStyles();
+    buildConsent();
+    injectPrivacyLink();
+
+    if (readConsent()) {
+      trackPageView();
+      return;
+    }
+
+    const show = () => openConsent(false);
+    document.addEventListener('mdc:splash-complete', show, { once: true });
+    window.setTimeout(show, 3400);
+  }
+
   function boot() {
     configureMeta();
     injectBottomNav();
@@ -147,10 +319,11 @@
     setupInstallPrompt();
     setupServiceWorker();
     setupNetworkState();
+    setupConsent();
 
     const late = () => injectInstallBanner();
-    if ('requestIdleCallback' in window) requestIdleCallback(late, { timeout: 1600 });
-    else window.setTimeout(late, 900);
+    if ('requestIdleCallback' in window) requestIdleCallback(late, { timeout: 1800 });
+    else window.setTimeout(late, 1000);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
