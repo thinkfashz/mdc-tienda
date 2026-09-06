@@ -1,5 +1,5 @@
 /* MDC Ferretería · PWA robusta para app instalada */
-const CACHE = "mdc-store-shell-v7";
+const CACHE = "mdc-store-shell-v8";
 const CACHE_PREFIX = "mdc-store-shell-";
 
 const CORE = [
@@ -19,6 +19,8 @@ const CORE = [
   "./marketplace-experience.js",
   "./social-contact.js",
   "./splash-loader.js",
+  "./loader-guard.js",
+  "./cart-state-guard.js",
   "./app-integrity.js",
   "./app-update.js",
   "./catalog.snapshot.json",
@@ -109,13 +111,11 @@ self.addEventListener("fetch", event => {
   const url = new URL(req.url);
   const path = url.pathname;
 
-  // La versión del deployment jamás se cachea: es la señal para mostrar el modal de actualización.
   if (path === "/api/version") {
     event.respondWith(fetch(req, { cache: "no-store" }));
     return;
   }
 
-  // Navegación: red primero para que una actualización aplicada cargue el HTML más reciente.
   if (req.mode === "navigate") {
     event.respondWith((async () => {
       try {
@@ -131,19 +131,16 @@ self.addEventListener("fetch", event => {
     return;
   }
 
-  // Catálogo desplegado: siempre intenta la copia de ESTE deployment antes del cache local.
   if (path.endsWith("/catalog.snapshot.json")) {
     event.respondWith(networkFirst(req));
     return;
   }
 
-  // Código y estilos: red primero. Esto evita que la PWA se quede ejecutando JS viejo tras un deploy.
   if (/\.(?:js|css|webmanifest)$/i.test(path)) {
     event.respondWith(networkFirst(req));
     return;
   }
 
-  // Imágenes y demás assets: cache primero para una experiencia rápida y offline.
   event.respondWith((async () => {
     const cached = await cacheMatchIgnoringVersion(req);
     if (cached) return cached;
