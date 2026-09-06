@@ -8,11 +8,11 @@
 
   window.MDC_MEDIA = MEDIA;
 
-  const SESSION_KEY = 'mdc-premium-splash-v6';
+  const SESSION_KEY = 'mdc-premium-splash-v7';
   const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  const MIN_VISIBLE_MS = reduceMotion ? 900 : 2850;
-  const TARGET_VISIBLE_MS = reduceMotion ? 1100 : 3000;
-  const HARD_FAILSAFE_MS = reduceMotion ? 1500 : 3800;
+  const MIN_VISIBLE_MS = reduceMotion ? 120 : 650;
+  const TARGET_VISIBLE_MS = reduceMotion ? 180 : 950;
+  const HARD_FAILSAFE_MS = reduceMotion ? 450 : 1500;
   let activeSplash = null;
   let startedAt = 0;
   let dismissed = false;
@@ -60,12 +60,12 @@
   }
 
   function loadLayers() {
-    loadCssOnce('marketplace-experience.css?v=3', 'mdc-marketplace');
-    loadCssOnce('social-contact.css?v=2', 'mdc-contact');
-    loadScriptOnce('marketplace-experience.js?v=3', 'mdc-marketplace-js');
-    loadScriptOnce('social-contact.js?v=2', 'mdc-contact-js');
-    loadScriptOnce('app-update.js?v=4', 'mdc-app-update');
-    loadScriptOnce('app-integrity.js?v=2', 'mdc-app-integrity');
+    loadCssOnce('marketplace-experience.css?v=4', 'mdc-marketplace');
+    loadCssOnce('social-contact.css?v=3', 'mdc-contact');
+    loadScriptOnce('marketplace-experience.js?v=4', 'mdc-marketplace-js');
+    loadScriptOnce('social-contact.js?v=3', 'mdc-contact-js');
+    loadScriptOnce('app-update.js?v=5', 'mdc-app-update');
+    loadScriptOnce('app-integrity.js?v=3', 'mdc-app-integrity');
   }
 
   function ensureBrandStyle() {
@@ -118,7 +118,7 @@
       }
     } catch (_) {}
 
-    fetch('catalog.snapshot.json?v=4', { cache: 'force-cache', headers: { Accept: 'application/json' } }).catch(() => null);
+    fetch('catalog.snapshot.json?v=5', { cache: 'force-cache', headers: { Accept: 'application/json' } }).catch(() => null);
   }
 
   function setStatus(text) {
@@ -134,6 +134,8 @@
     if (!node) return;
     node.classList.add('is-exiting');
     node.style.pointerEvents = 'none';
+    node.style.visibility = 'hidden';
+    node.style.opacity = '0';
     if (immediate) {
       node.remove();
       activeSplash = null;
@@ -142,7 +144,7 @@
     window.setTimeout(() => {
       node.remove();
       activeSplash = null;
-    }, 340);
+    }, 180);
   }
 
   function maybeDismiss() {
@@ -180,7 +182,7 @@
 
     const copy = document.createElement('div');
     copy.className = 'mdc-splash-copy';
-    copy.innerHTML = '<strong>MDC Ferretería</strong><span data-mdc-splash-status>Preparando catálogo, imágenes y tienda</span>';
+    copy.innerHTML = '<strong>MDC Ferretería</strong><span data-mdc-splash-status>Preparando catálogo</span>';
 
     const hint = document.createElement('div');
     hint.className = 'mdc-splash-hint';
@@ -208,20 +210,23 @@
       return false;
     }
 
+    /* El watchdog se arma inmediatamente: ninguna consulta de red puede retener el splash. */
+    window.setTimeout(() => dismissSplash(true), HARD_FAILSAFE_MS);
+    window.setTimeout(maybeDismiss, TARGET_VISIBLE_MS);
+
     document.addEventListener('mdc:catalog-ready', () => {
       catalogReady = true;
-      setStatus('Catálogo listo · terminando de preparar la tienda');
+      setStatus('Catálogo listo');
       maybeDismiss();
     }, { once: true });
 
     try {
       if (typeof LiveCatalog !== 'undefined' && LiveCatalog.loaded && LiveCatalog.products?.length) {
         catalogReady = true;
+        maybeDismiss();
       }
     } catch (_) {}
 
-    window.setTimeout(maybeDismiss, TARGET_VISIBLE_MS);
-    window.setTimeout(() => dismissSplash(true), HARD_FAILSAFE_MS);
     window.addEventListener('pagehide', () => dismissSplash(true), { once: true });
     return true;
   }
@@ -230,7 +235,7 @@
     const splash = document.querySelector('.mdc-splash');
     if (!splash) return;
     const age = Date.now() - Number(splash.dataset.startedAt || 0);
-    if (!Number.isFinite(age) || age > HARD_FAILSAFE_MS) dismissSplash(true);
+    if (!Number.isFinite(age) || age >= HARD_FAILSAFE_MS) dismissSplash(true);
   }
 
   function boot() {
@@ -239,14 +244,14 @@
     setPremiumBrandImages();
     const shown = showSplash();
 
-    /* Durante el splash se descarga lo importante; no se espera hasta después. */
+    /* La precarga corre en paralelo; nunca condiciona la salida del loader. */
     loadLayers();
     warmCriticalAssets();
 
     if (!shown) {
       const later = () => warmCriticalAssets();
-      if ('requestIdleCallback' in window) requestIdleCallback(later, { timeout: 600 });
-      else window.setTimeout(later, 250);
+      if ('requestIdleCallback' in window) requestIdleCallback(later, { timeout: 500 });
+      else window.setTimeout(later, 180);
     }
 
     window.addEventListener('load', setPremiumBrandImages, { once: true });
@@ -256,7 +261,9 @@
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') recover();
   });
-  window.setTimeout(recover, HARD_FAILSAFE_MS + 120);
+  window.addEventListener('error', recover, true);
+  window.addEventListener('unhandledrejection', recover);
+  window.setTimeout(recover, HARD_FAILSAFE_MS + 80);
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
   else boot();
