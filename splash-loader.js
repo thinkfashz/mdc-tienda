@@ -18,6 +18,24 @@
   const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const SPLASH_MS = reduceMotion ? 650 : 2000;
 
+  function loadMarketplaceLayer() {
+    if (!document.querySelector('link[data-mdc-marketplace]')) {
+      const css = document.createElement('link');
+      css.rel = 'stylesheet';
+      css.href = 'marketplace-experience.css?v=1';
+      css.dataset.mdcMarketplace = '1';
+      document.head.appendChild(css);
+    }
+
+    if (!document.querySelector('script[data-mdc-marketplace]')) {
+      const script = document.createElement('script');
+      script.src = 'marketplace-experience.js?v=1';
+      script.defer = true;
+      script.dataset.mdcMarketplace = '1';
+      document.head.appendChild(script);
+    }
+  }
+
   function setPremiumBrandImages() {
     document.querySelectorAll('.nav-logo img').forEach(img => {
       img.src = MEDIA.logo;
@@ -152,6 +170,7 @@
   }
 
   function boot() {
+    loadMarketplaceLayer();
     setPremiumBrandImages();
     showSplash();
 
