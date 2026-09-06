@@ -44,6 +44,50 @@
 <script>
   const root = document.getElementById("checkout-root");
   const API_CHECKOUT = "https://mdc-app-dun.vercel.app/api/public/checkout";
+  const MDC_WHATSAPP = "56920688075";
+
+  function buildWhatsAppMessage(payload, items, total, orderNumber = null) {
+    const lines = [
+      orderNumber
+        ? `Hola MDC, acabo de registrar el pedido #${orderNumber}.`
+        : "Hola MDC, quiero confirmar este pedido desde la tienda web.",
+      "",
+      `Nombre: ${payload.name}`,
+      `Teléfono: ${payload.phone}`,
+    ];
+
+    if (payload.email) lines.push(`Email: ${payload.email}`);
+    if (payload.address) lines.push(`Dirección: ${payload.address}`);
+    if (payload.city) lines.push(`Ciudad: ${payload.city}`);
+
+    lines.push("", "Productos:");
+    items.forEach((i) => {
+      lines.push(`• ${i.qty}× ${i.p.nombre} — ${CLP(i.p.precio * i.qty)}`);
+    });
+    lines.push("", `Total: ${CLP(total)}`);
+
+    if (payload.notes) lines.push(`Notas: ${payload.notes}`);
+    lines.push("", "Quedo atento/a para coordinar pago y despacho.");
+
+    return lines.join("\n");
+  }
+
+  function showWhatsAppFallback(payload, items, total) {
+    const waMsg = buildWhatsAppMessage(payload, items, total);
+    const waUrl = `https://wa.me/${MDC_WHATSAPP}?text=${encodeURIComponent(waMsg)}`;
+
+    root.innerHTML = `
+      <div class="co-success">
+        <div class="co-success-icon">!</div>
+        <h2>Tu pedido está listo</h2>
+        <p class="co-num">Total <b>${CLP(total)}</b></p>
+        <p class="text-muted">El registro automático está temporalmente fuera de servicio, pero puedes confirmar el pedido ahora mismo por WhatsApp. Mantuvimos tu carrito intacto para que no pierdas nada.</p>
+        <div class="co-success-actions">
+          <a class="btn btn-solid" href="${waUrl}" target="_blank" rel="noopener">Confirmar por WhatsApp</a>
+          <a class="btn btn-ghost" href="carrito.html">Volver al carrito</a>
+        </div>
+      </div>`;
+  }
 
   function renderCheckout() {
     const cart = getCart();
@@ -133,13 +177,23 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-        const data = await res.json();
-        if (!res.ok || data.error) {
-          throw new Error(data.error || "Error al enviar el pedido");
+
+        let data = {};
+        try {
+          data = await res.json();
+        } catch (_) {
+          data = {};
         }
-        // éxito → limpiar carrito y mostrar confirmación
+
+        if (!res.ok || data.error) {
+          const requestError = new Error(data.error || "Error al enviar el pedido");
+          requestError.status = res.status;
+          requestError.code = data.code || null;
+          throw requestError;
+        }
+
         clearCart();
-        const waMsg = `Hola MDC, acabo de hacer el pedido #${data.orderNumber} por ${CLP(data.total)}. Mi nombre: ${payload.name}`;
+        const waMsg = buildWhatsAppMessage(payload, items, data.total, data.orderNumber);
         root.innerHTML = `
           <div class="co-success">
             <div class="co-success-icon">✓</div>
@@ -147,12 +201,19 @@
             <p class="co-num">Pedido <b>#${data.orderNumber}</b> · Total <b>${CLP(data.total)}</b></p>
             <p class="text-muted">Guardamos tus datos para futuras compras. Te contactaremos a la brevedad para coordinar pago y despacho.</p>
             <div class="co-success-actions">
-              <a class="btn btn-solid" href="https://wa.me/56920688075?text=${encodeURIComponent(waMsg)}" target="_blank" rel="noopener">Acelerar por WhatsApp</a>
+              <a class="btn btn-solid" href="https://wa.me/${MDC_WHATSAPP}?text=${encodeURIComponent(waMsg)}" target="_blank" rel="noopener">Acelerar por WhatsApp</a>
               <a class="btn btn-ghost" href="catalogo.html">Seguir comprando</a>
             </div>
           </div>`;
       } catch (err) {
-        errEl.textContent = err.message;
+        const shouldUseFallback = !err.status || err.status >= 500 || err.code === "PERSISTENCE_UNAVAILABLE";
+
+        if (shouldUseFallback) {
+          showWhatsAppFallback(payload, items, total);
+          return;
+        }
+
+        errEl.textContent = err.message || "No pudimos procesar el pedido.";
         errEl.hidden = false;
         btn.disabled = false;
         btn.textContent = "Confirmar pedido";
