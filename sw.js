@@ -1,5 +1,5 @@
 /* MDC Ferretería · PWA rápida para app instalada */
-const CACHE = "mdc-store-shell-v10";
+const CACHE = "mdc-store-shell-v11";
 const CACHE_PREFIX = "mdc-store-shell-";
 
 const CORE = [
@@ -15,6 +15,7 @@ const CORE = [
   "./social-contact.css",
   "./splash-loader.css",
   "./app.js",
+  "./catalog-instant.js",
   "./mobile-shell.js",
   "./marketplace-experience.js",
   "./social-contact.js",
@@ -73,6 +74,31 @@ async function staleWhileRevalidate(request, event) {
   return (await refresh) || Response.error();
 }
 
+async function injectInstantCatalog(response) {
+  if (!response || !response.ok) return response;
+  const type = response.headers.get("content-type") || "";
+  if (!type.includes("text/html")) return response;
+
+  try {
+    let html = await response.text();
+    if (!html.includes("catalog-instant.js")) {
+      html = html.replace(
+        /(<script\s+src=["']app\.js[^>]*><\/script>)/i,
+        '$1\n<script src="catalog-instant.js?v=1"></script>'
+      );
+    }
+    const headers = new Headers(response.headers);
+    headers.delete("content-length");
+    return new Response(html, {
+      status: response.status,
+      statusText: response.statusText,
+      headers
+    });
+  } catch (_) {
+    return response;
+  }
+}
+
 self.addEventListener("install", event => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE);
@@ -111,15 +137,15 @@ self.addEventListener("fetch", event => {
       const cached = await cacheMatch(req);
       const refresh = fetchAndCache(req).catch(() => null);
       event.waitUntil(refresh);
-      if (cached) return cached;
-      return (await refresh)
+      const base = cached
+        || (await refresh)
         || (await cacheMatch(new Request(new URL("./index.html", self.location).toString())))
         || Response.error();
+      return injectInstantCatalog(base);
     })());
     return;
   }
 
-  /* Snapshot y shell: cache inmediato + actualización silenciosa. */
   if (path.endsWith("/catalog.snapshot.json") || /\.(?:js|css|webmanifest)$/i.test(path)) {
     event.respondWith(staleWhileRevalidate(req, event));
     return;
