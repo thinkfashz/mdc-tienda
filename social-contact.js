@@ -85,21 +85,23 @@
     document.head.appendChild(schema);
   }
 
+  function hasCatalog() {
+    return typeof LiveCatalog !== 'undefined'
+      && LiveCatalog.loaded
+      && Array.isArray(LiveCatalog.products)
+      && LiveCatalog.products.length > 0;
+  }
+
   /*
    * Repara el contador cuando quedaron IDs antiguos guardados en localStorage.
    * El contador representa solo productos que la tienda realmente puede resolver.
-   * Si el catálogo en red confirma que un ID ya no existe, se limpia definitivamente.
    */
   function resolvedCart() {
-    if (typeof window.getCart !== 'function') return [];
-    const raw = window.getCart();
+    if (typeof getCart !== 'function') return [];
+    const raw = getCart();
     if (!Array.isArray(raw)) return [];
-
-    if (!window.LiveCatalog?.loaded || !Array.isArray(window.LiveCatalog.products) || !window.LiveCatalog.products.length) {
-      return raw;
-    }
-
-    return raw.filter(item => !!window.LiveCatalog.byId?.(item.id));
+    if (!hasCatalog()) return raw;
+    return raw.filter(item => !!LiveCatalog.byId(item.id));
   }
 
   function resolvedCartCount() {
@@ -119,11 +121,11 @@
   }
 
   function pruneStaleCartWhenAuthoritative() {
-    if (!window.LiveCatalog?.loaded || window.LiveCatalog.source !== 'network') return;
-    if (typeof window.getCart !== 'function') return;
+    if (typeof LiveCatalog === 'undefined' || !LiveCatalog.loaded || LiveCatalog.source !== 'network') return;
+    if (typeof getCart !== 'function') return;
 
-    const raw = window.getCart();
-    const valid = raw.filter(item => !!window.LiveCatalog.byId?.(item.id));
+    const raw = getCart();
+    const valid = raw.filter(item => !!LiveCatalog.byId(item.id));
     if (valid.length === raw.length) return;
 
     try {
@@ -132,8 +134,8 @@
   }
 
   function installCartRepair() {
-    if (typeof window.cartCount === 'function') window.cartCount = resolvedCartCount;
-    if (typeof window.updateCartCount === 'function') window.updateCartCount = repairCartCounter;
+    if (typeof cartCount === 'function') globalThis.cartCount = resolvedCartCount;
+    if (typeof updateCartCount === 'function') globalThis.updateCartCount = repairCartCounter;
 
     const sync = () => {
       pruneStaleCartWhenAuthoritative();
@@ -141,7 +143,9 @@
     };
 
     sync();
-    if (window.LiveCatalog?.onChange) window.LiveCatalog.onChange(sync);
+    if (typeof LiveCatalog !== 'undefined' && typeof LiveCatalog.onChange === 'function') {
+      LiveCatalog.onChange(sync);
+    }
     window.addEventListener('storage', event => {
       if (event.key === 'mdc-cart') sync();
     });
