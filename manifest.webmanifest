@@ -1,0 +1,36 @@
+{
+  "name": "MDC Ferretería Linares",
+  "short_name": "MDC",
+  "description": "Catálogo, stock, pedidos y cotizaciones de MDC Ferretería Linares.",
+  "lang": "es-CL",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "portrait-primary",
+  "background_color": "#090909",
+  "theme_color": "#090909",
+  "categories": ["shopping", "business"],
+  "icons": [
+    {
+      "src": "assets/logo-claro.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Catálogo",
+      "short_name": "Catálogo",
+      "url": "./catalogo.html",
+      "icons": [{"src": "assets/logo-claro.png", "sizes": "any", "type": "image/png"}]
+    },
+    {
+      "name": "Carrito",
+      "short_name": "Carrito",
+      "url": "./carrito.html",
+      "icons": [{"src": "assets/logo-claro.png", "sizes": "any", "type": "image/png"}]
+    }
+  ]
+}
