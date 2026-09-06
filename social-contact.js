@@ -92,15 +92,43 @@
       && LiveCatalog.products.length > 0;
   }
 
+  /* Recuperación adicional para la app instalada: usa el snapshot sin query string. */
+  async function recoverInstalledCatalog() {
+    if (typeof LiveCatalog === 'undefined') return;
+
+    try {
+      if (!LiveCatalog.loaded && typeof LiveCatalog.load === 'function') {
+        await LiveCatalog.load();
+      }
+    } catch (_) {}
+
+    if (hasCatalog()) return;
+
+    try {
+      const response = await fetch('catalog.snapshot.json', {
+        cache: 'reload',
+        headers: { Accept: 'application/json' }
+      });
+      if (!response.ok) return;
+      const snapshot = await response.json();
+      if (!Array.isArray(snapshot?.products) || !snapshot.products.length) return;
+      if (typeof LiveCatalog._setProducts === 'function') {
+        LiveCatalog._setProducts(snapshot.products, 'snapshot');
+      }
+    } catch (_) {
+      // Si tampoco existe snapshot, la UI conserva el estado degradado sin romperse.
+    }
+  }
+
   /*
    * Repara el contador cuando quedaron IDs antiguos guardados en localStorage.
-   * El contador representa solo productos que la tienda realmente puede resolver.
+   * Hasta que el catálogo esté resuelto no muestra un número potencialmente falso.
    */
   function resolvedCart() {
     if (typeof getCart !== 'function') return [];
+    if (!hasCatalog()) return [];
     const raw = getCart();
     if (!Array.isArray(raw)) return [];
-    if (!hasCatalog()) return raw;
     return raw.filter(item => !!LiveCatalog.byId(item.id));
   }
 
@@ -160,12 +188,14 @@
       .catch(() => null);
   }
 
-  function boot() {
+  async function boot() {
     patchWhatsappLinks();
     injectContactSocials();
     injectStructuredData();
     installCartRepair();
     forceServiceWorkerUpdate();
+    await recoverInstalledCatalog();
+    repairCartCounter();
 
     const observer = new MutationObserver(mutations => {
       for (const mutation of mutations) {
