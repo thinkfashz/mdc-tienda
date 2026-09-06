@@ -18,23 +18,23 @@ body.mdc-splash-lock { overflow: auto !important; }
   padding: max(18px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom));
   color: #fff;
   background:
-    radial-gradient(55% 34% at 50% 42%, rgba(255,114,0,.14), transparent 72%),
-    rgba(7,7,7,.46);
-  -webkit-backdrop-filter: blur(22px) saturate(.92);
-  backdrop-filter: blur(22px) saturate(.92);
+    radial-gradient(58% 38% at 50% 39%, rgba(255,114,0,.17), transparent 74%),
+    rgba(7,7,7,.52);
+  -webkit-backdrop-filter: blur(24px) saturate(.94);
+  backdrop-filter: blur(24px) saturate(.94);
   opacity: 1;
   visibility: visible;
   pointer-events: none;
   transform: translateZ(0);
   transition:
-    opacity .24s cubic-bezier(.22,.7,.2,1),
-    visibility .24s ease,
-    backdrop-filter .28s ease,
-    -webkit-backdrop-filter .28s ease;
+    opacity .32s cubic-bezier(.22,.7,.2,1),
+    visibility .32s ease,
+    backdrop-filter .34s ease,
+    -webkit-backdrop-filter .34s ease;
   overflow: hidden;
   isolation: isolate;
   contain: layout paint style;
-  animation: mdcSplashFailsafe 1.04s linear forwards;
+  animation: mdcSplashFailsafe 3.75s linear forwards;
 }
 
 .mdc-splash::before {
@@ -42,14 +42,14 @@ body.mdc-splash-lock { overflow: auto !important; }
   position: absolute;
   inset: -12%;
   z-index: -1;
-  opacity: .5;
+  opacity: .56;
   pointer-events: none;
   background:
-    radial-gradient(circle at 22% 18%, rgba(255,128,35,.22), transparent 24%),
-    radial-gradient(circle at 82% 72%, rgba(255,89,0,.12), transparent 28%),
-    linear-gradient(135deg, rgba(255,255,255,.035), transparent 42%);
-  filter: blur(30px);
-  transform: scale(1.04);
+    radial-gradient(circle at 22% 18%, rgba(255,128,35,.23), transparent 25%),
+    radial-gradient(circle at 82% 72%, rgba(255,89,0,.14), transparent 29%),
+    linear-gradient(135deg, rgba(255,255,255,.038), transparent 43%);
+  filter: blur(34px);
+  transform: scale(1.05);
 }
 
 .mdc-splash.is-exiting {
@@ -60,30 +60,30 @@ body.mdc-splash-lock { overflow: auto !important; }
 }
 
 .mdc-splash-inner {
-  width: min(88vw, 560px);
+  width: min(90vw, 620px);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 9px;
+  gap: 12px;
   text-align: center;
   transform: translateZ(0);
 }
 
 .mdc-splash-logo {
-  width: min(58vw, 278px);
-  max-height: 104px;
+  width: min(68vw, 360px);
+  max-height: 138px;
   object-fit: contain;
-  filter: drop-shadow(0 7px 20px rgba(255,105,0,.16));
-  transform: translateY(3px) scale(.985);
+  filter: drop-shadow(0 9px 28px rgba(255,105,0,.2));
+  transform: translateY(8px) scale(.95);
   opacity: 0;
-  animation: mdcLogoIn .22s cubic-bezier(.2,.8,.2,1) .01s forwards;
+  animation: mdcLogoIn .58s cubic-bezier(.2,.8,.2,1) .08s forwards;
 }
 
 .mdc-splash-stage {
   position: relative;
-  width: min(76vw, 470px);
-  height: 68px;
+  width: min(82vw, 520px);
+  height: 88px;
 }
 
 .mdc-splash-track {
@@ -91,10 +91,10 @@ body.mdc-splash-lock { overflow: auto !important; }
   left: 0;
   right: 0;
   bottom: 8px;
-  height: 12px;
+  height: 13px;
   border-radius: 999px;
-  background: rgba(18,18,18,.82);
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.08), 0 8px 18px rgba(0,0,0,.3);
+  background: rgba(18,18,18,.84);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.08), 0 10px 22px rgba(0,0,0,.32);
   overflow: hidden;
 }
 
@@ -104,21 +104,21 @@ body.mdc-splash-lock { overflow: auto !important; }
   width: 0;
   border-radius: inherit;
   background: linear-gradient(90deg, #ff6500, #ff9a32);
-  box-shadow: 0 0 14px rgba(255,112,0,.32);
-  animation: mdcBarFill .54s cubic-bezier(.16,.72,.2,1) .04s forwards;
+  box-shadow: 0 0 16px rgba(255,112,0,.34);
+  animation: mdcBarFill 2.56s cubic-bezier(.16,.72,.2,1) .2s forwards;
 }
 
 .mdc-splash-truck {
   position: absolute;
   left: 0;
-  bottom: 10px;
-  width: clamp(92px, 22vw, 126px);
+  bottom: 11px;
+  width: clamp(112px, 27vw, 152px);
   aspect-ratio: 3 / 2;
   z-index: 4;
   will-change: transform;
-  transform: translate3d(-3px,0,0);
-  animation: mdcTruckDrive .58s cubic-bezier(.16,.72,.2,1) .03s forwards;
-  filter: drop-shadow(0 6px 8px rgba(0,0,0,.42));
+  transform: translate3d(-4px,0,0);
+  animation: mdcTruckDrive 2.5s cubic-bezier(.16,.72,.2,1) .18s forwards;
+  filter: drop-shadow(0 7px 10px rgba(0,0,0,.44));
 }
 
 .mdc-splash-truck-body {
@@ -139,34 +139,43 @@ body.mdc-splash-lock { overflow: auto !important; }
   border-radius: 50%;
   background: radial-gradient(circle at 50% 50%, #777 0 18%, #202020 20% 52%, #050505 54% 100%);
   box-shadow: 0 1px 3px rgba(0,0,0,.5);
-  animation: mdcWheelSpin .2s linear infinite;
+  animation: mdcWheelSpin .34s linear infinite;
 }
 .mdc-wheel.rear { left: 20%; }
 .mdc-wheel.front { left: 76%; }
 
 .mdc-splash-copy {
   display: grid;
-  gap: 2px;
+  gap: 4px;
   opacity: 0;
-  transform: translateY(4px);
-  animation: mdcFadeUp .2s ease .1s forwards;
+  transform: translateY(6px);
+  animation: mdcFadeUp .46s ease .5s forwards;
 }
 .mdc-splash-copy strong {
-  font-size: clamp(16px, 3.8vw, 20px);
-  letter-spacing: -.02em;
+  font-size: clamp(19px, 4.4vw, 25px);
+  letter-spacing: -.025em;
 }
 .mdc-splash-copy span {
-  color: #bbb4ab;
-  font-size: clamp(9.5px, 2.4vw, 11.5px);
+  color: #c6beb4;
+  font-size: clamp(10.5px, 2.6vw, 12.5px);
+}
+.mdc-splash-hint {
+  opacity: 0;
+  color: #8f8981;
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  animation: mdcFadeUp .4s ease .78s forwards;
 }
 
 @keyframes mdcSplashFailsafe {
-  0%, 78% { opacity: 1; visibility: visible; }
+  0%, 91% { opacity: 1; visibility: visible; }
   100% { opacity: 0; visibility: hidden; }
 }
 @keyframes mdcLogoIn { to { opacity: 1; transform: translateY(0) scale(1); } }
 @keyframes mdcBarFill { to { width: 100%; } }
-@keyframes mdcTruckDrive { to { transform: translate3d(calc(min(76vw, 470px) - clamp(92px, 22vw, 126px)),0,0); } }
+@keyframes mdcTruckDrive { to { transform: translate3d(calc(min(82vw, 520px) - clamp(112px, 27vw, 152px)),0,0); } }
 @keyframes mdcWheelSpin { to { transform: rotate(360deg); } }
 @keyframes mdcFadeUp { to { opacity: 1; transform: translateY(0); } }
 
@@ -191,7 +200,6 @@ body.mdc-splash-lock { overflow: auto !important; }
   to { opacity: 1; filter: blur(0); transform: translateY(0) scale(1); }
 }
 
-/* Placeholder visual de muy corta duración para primer arranque sin cache. */
 .grid-products:empty {
   min-height: clamp(220px, 34vw, 360px);
   border-radius: 22px;
@@ -203,7 +211,6 @@ body.mdc-splash-lock { overflow: auto !important; }
 }
 @keyframes mdcSkeleton { to { background-position: -220% 0, 0 0; } }
 
-/* Logo real de marca en navegación y footer */
 .nav-logo img.mdc-brand-logo {
   width: 104px !important;
   height: 46px !important;
@@ -262,12 +269,12 @@ body.mdc-splash-lock { overflow: auto !important; }
 .prod-precio b { font-variant-numeric: tabular-nums; }
 
 @media (max-width: 820px) {
-  .mdc-splash-inner { width: 100%; gap: 7px; }
-  .mdc-splash-logo { width: min(64vw, 268px); max-height: 98px; }
-  .mdc-splash-stage { width: 84vw; height: 64px; }
-  .mdc-splash-truck { width: clamp(90px, 25vw, 116px); }
+  .mdc-splash-inner { width: 100%; gap: 10px; }
+  .mdc-splash-logo { width: min(76vw, 342px); max-height: 128px; }
+  .mdc-splash-stage { width: 88vw; height: 84px; }
+  .mdc-splash-truck { width: clamp(108px, 30vw, 144px); }
 
-  .nav-logo img.mdc-brand-logo { width: 92px !important; height: 44px !important; }
+  .nav-logo img.mdc-brand-logo { width: 96px !important; height: 46px !important; }
   .grid-products { gap: 12px !important; }
   .grid-products:empty { min-height: 280px; }
   .prod { border-radius: 20px !important; }
@@ -281,9 +288,9 @@ body.mdc-splash-lock { overflow: auto !important; }
 }
 
 @media (max-width: 380px) {
-  .mdc-splash-logo { width: 62vw; }
-  .mdc-splash-stage { height: 60px; }
-  .mdc-splash-truck { width: 88px; }
+  .mdc-splash-logo { width: 74vw; }
+  .mdc-splash-stage { height: 78px; }
+  .mdc-splash-truck { width: 104px; }
   .prod-nombre { font-size: 13px !important; }
   .prod-precio b { font-size: 14px !important; }
 }
@@ -295,6 +302,6 @@ body.mdc-splash-lock { overflow: auto !important; }
     animation-iteration-count: 1 !important;
     transition-duration: .01ms !important;
   }
-  .mdc-splash { animation: mdcSplashFailsafe .22s linear forwards !important; }
+  .mdc-splash { animation: mdcSplashFailsafe 1.5s linear forwards !important; }
   .grid-products.is-rendering-products { filter: none; opacity: 1; transform: none; }
 }
