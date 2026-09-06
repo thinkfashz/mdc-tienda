@@ -129,7 +129,7 @@
   function setupServiceWorker() {
     if (!('serviceWorker' in navigator) || !/^https?:$/.test(location.protocol)) return;
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('sw.js?v=9', { scope: './', updateViaCache: 'none' }).catch(() => null);
+      navigator.serviceWorker.register('sw.js?v=10', { scope: './', updateViaCache: 'none' }).catch(() => null);
     }, { once: true });
   }
 
@@ -148,7 +148,6 @@
     setupServiceWorker();
     setupNetworkState();
 
-    /* Banner de instalación fuera del camino crítico. */
     const late = () => injectInstallBanner();
     if ('requestIdleCallback' in window) requestIdleCallback(late, { timeout: 1600 });
     else window.setTimeout(late, 900);
