@@ -206,7 +206,6 @@
       return;
     }
 
-    // Los temporizadores se arman ANTES de cualquier animación para garantizar salida.
     const exitTimer = window.setTimeout(() => dismissSplash(splash, false), SPLASH_MS);
     const hardTimer = window.setTimeout(() => dismissSplash(splash, true), HARD_FAILSAFE_MS);
 
@@ -231,11 +230,12 @@
   }
 
   function boot() {
+    // El contador nunca espera al resto de capas visuales.
+    loadScriptOnce('cart-state-guard.js?v=2', 'mdc-cart-state');
     ensureBrandStyle();
     setPremiumBrandImages();
     showSplash();
 
-    // Carga lógica secundaria después de asegurar la salida del loader.
     window.setTimeout(loadLayers, 80);
 
     const observer = new MutationObserver(() => setPremiumBrandImages());
