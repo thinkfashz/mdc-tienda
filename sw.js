@@ -1,5 +1,5 @@
 /* MDC Ferretería · PWA rápida para app instalada */
-const CACHE = "mdc-store-shell-v12";
+const CACHE = "mdc-store-shell-v13";
 const CACHE_PREFIX = "mdc-store-shell-";
 
 const CORE = [
@@ -93,6 +93,10 @@ self.addEventListener("activate", event => {
       .map(key => caches.delete(key)));
     await self.clients.claim();
   })());
+});
+
+self.addEventListener("message", event => {
+  if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
 });
 
 self.addEventListener("fetch", event => {
