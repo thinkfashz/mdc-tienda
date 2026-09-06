@@ -6,7 +6,6 @@ const CATALOG_TIMEOUT_MS = 7000;
 
 const FALLBACK_IMG = "assets/p-herramientas.png";
 
-/* Mapa de imagen de respaldo por categoría cuando el producto no tiene foto */
 const CAT_IMG = {
   herramientas: "assets/p-herramientas.png",
   electricidad: "assets/p-cable.png",
@@ -38,15 +37,26 @@ function finiteNumber(value, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-function normalize(p) {
-  const category = p && p.category ? p.category : null;
+function normalize(input) {
+  const p = input && typeof input === "object" ? input : {};
+  const category = p.category && typeof p.category === "object" ? p.category : null;
   const catSlug = category && category.slug ? String(category.slug) : String(p.cat || "ferreteria");
   const catName = category && category.name ? String(category.name) : String(p.catNombre || "Ferretería general");
   const rawStock = p.stock;
   const rawMinStock = p.minStock;
 
+  /*
+   * El slug es la identidad pública estable del producto.
+   * backendId conserva el ID real de Prisma para sincronización/checkout.
+   * Así el carrito no depende de CUIDs que pueden cambiar entre importaciones.
+   */
+  const stableId = String(p.slug || p.id || p.sku || "");
+  const backendId = String(p.id || stableId);
+
   return {
-    id: String(p.id || p.slug || ""),
+    id: stableId,
+    backendId,
+    slug: String(p.slug || stableId),
     nombre: String(p.name || p.nombre || "Producto MDC"),
     marca: String(p.brand || p.marca || catName || "MDC"),
     cat: catSlug,
@@ -133,7 +143,7 @@ function writeCatalogCache(products) {
       products,
     }));
   } catch (_) {
-    // El catálogo sigue funcionando aunque localStorage no esté disponible.
+    /* la tienda sigue operativa aunque localStorage esté bloqueado */
   }
 }
 
@@ -155,14 +165,6 @@ function updateCatalogModeUI(source) {
   });
 }
 
-/*
- * Estado global del catálogo.
- * Orden de recuperación:
- * 1) API de inventario real
- * 2) último catálogo válido guardado en el dispositivo
- * 3) snapshot empaquetado con la tienda
- * Nunca dejamos el escaparate completamente vacío por una caída del backend.
- */
 const LiveCatalog = {
   products: [],
   loaded: false,
@@ -172,6 +174,12 @@ const LiveCatalog = {
   isLive: false,
   lastSyncAt: null,
   error: null,
+
+  _notify() {
+    this.listeners.forEach(fn => {
+      try { fn(this); } catch (err) { console.error("Catalog listener error:", err); }
+    });
+  },
 
   _setProducts(rawProducts, source) {
     const normalized = (rawProducts || [])
@@ -184,9 +192,7 @@ const LiveCatalog = {
     this.lastSyncAt = new Date().toISOString();
     this.loaded = true;
     updateCatalogModeUI(source);
-    this.listeners.forEach(fn => {
-      try { fn(this); } catch (err) { console.error("Catalog listener error:", err); }
-    });
+    this._notify();
     return normalized;
   },
 
@@ -242,19 +248,23 @@ const LiveCatalog = {
     };
   },
 
-  /* stock en vivo por ids — devuelve mapa id -> {stock, price} */
   async refreshStock(ids) {
     if (!this.isLive || !Array.isArray(ids) || !ids.length) return null;
 
     try {
-      const safeIds = ids.map(String).filter(Boolean);
-      const qs = safeIds.length ? `?ids=${encodeURIComponent(safeIds.join(","))}` : "";
+      const requestedProducts = ids
+        .map(id => this.byId(id))
+        .filter(Boolean);
+      const backendIds = [...new Set(requestedProducts.map(p => p.backendId || p.id).filter(Boolean))];
+      if (!backendIds.length) return null;
+
+      const qs = `?ids=${encodeURIComponent(backendIds.join(","))}`;
       const data = await fetchJson(`${API}/stock${qs}`, 5000);
       if (!data || !data.stock) return null;
 
       let changed = false;
       for (const p of this.products) {
-        const s = data.stock[p.id];
+        const s = data.stock[p.backendId] || data.stock[p.id];
         if (!s) continue;
 
         const nextStock = s.stock == null ? p.stock : Math.max(0, Math.floor(finiteNumber(s.stock, 0)));
@@ -268,7 +278,7 @@ const LiveCatalog = {
       }
 
       this.lastSyncAt = new Date().toISOString();
-      if (changed) this.listeners.forEach(fn => fn(this));
+      if (changed) this._notify();
       return data.stock;
     } catch (err) {
       console.warn("No se pudo refrescar stock; se conserva el último estado conocido.", err);
@@ -277,7 +287,8 @@ const LiveCatalog = {
   },
 
   byId(id) {
-    return this.products.find(p => p.id === String(id));
+    const key = String(id);
+    return this.products.find(p => p.id === key || p.backendId === key || p.slug === key || (p.sku && p.sku === key));
   },
 };
 
@@ -298,7 +309,7 @@ function saveCart(cart) {
   try {
     localStorage.setItem("mdc-cart", JSON.stringify(cart));
   } catch (_) {
-    // El checkout por WhatsApp sigue disponible aunque falle localStorage.
+    /* checkout por WhatsApp permanece disponible */
   }
   updateCartCount();
 }
@@ -328,13 +339,18 @@ function addToCart(id, qty = 1) {
 
   const safeQty = Math.max(1, Math.floor(finiteNumber(qty, 1)));
   const cart = getCart();
-  const found = cart.find(i => i.id === String(id));
+  const stableId = product.id;
+  const found = cart.find(i => i.id === stableId || i.id === product.backendId);
   const currentQty = found ? found.qty : 0;
   const maxQty = product.stock == null ? 99 : product.stock;
   const nextQty = Math.min(maxQty, currentQty + safeQty);
 
-  if (found) found.qty = nextQty;
-  else cart.push({ id: String(id), qty: nextQty });
+  if (found) {
+    found.id = stableId;
+    found.qty = nextQty;
+  } else {
+    cart.push({ id: stableId, qty: nextQty });
+  }
 
   saveCart(cart);
   toast(product.stock == null ? "Agregado · stock por confirmar" : "Agregado al carrito");
@@ -345,14 +361,16 @@ function setQty(id, qty) {
   const product = LiveCatalog.byId(id);
   let cart = getCart();
   const safeQty = Math.floor(finiteNumber(qty, 0));
+  const candidateIds = product ? [product.id, product.backendId] : [String(id)];
 
-  if (safeQty <= 0) {
-    cart = cart.filter(i => i.id !== String(id));
+  if (safeQty <= 0 || (product && product.stock === 0)) {
+    cart = cart.filter(i => !candidateIds.includes(i.id));
   } else {
-    const item = cart.find(i => i.id === String(id));
+    const item = cart.find(i => candidateIds.includes(i.id));
     if (item) {
-      const maxQty = product && product.stock != null ? Math.max(0, product.stock) : 99;
-      item.qty = Math.min(maxQty || safeQty, safeQty);
+      const maxQty = product && product.stock != null ? product.stock : 99;
+      item.id = product ? product.id : item.id;
+      item.qty = Math.min(maxQty, safeQty);
     }
   }
 
@@ -386,9 +404,7 @@ function productCard(p) {
       <h3 class="prod-nombre">${escapeHTML(p.nombre)}</h3>
       ${stockBadge(p.stock, p.minStock)}
       <div class="prod-foot">
-        <div class="prod-precio">
-          <b>${CLP(p.precio)}</b>
-        </div>
+        <div class="prod-precio"><b>${CLP(p.precio)}</b></div>
         ${canOrder ? `
         <button class="prod-add" aria-label="Agregar ${escapeAttr(p.nombre)} al carrito" data-add="${escapeAttr(p.id)}">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
