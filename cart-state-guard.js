@@ -2,7 +2,6 @@
 (() => {
   const CART_KEY = 'mdc-cart';
   let boundToCatalog = false;
-  let lastPaint = null;
 
   function rawCart() {
     try {
@@ -33,30 +32,28 @@
     }
   }
 
-  function paint(count) {
+  function setBadge(el, count) {
     const n = Math.max(0, Number(count) || 0);
     const visible = n > 0;
-    if (lastPaint === n && document.querySelectorAll('[data-cart-count]').length) {
-      document.querySelectorAll('[data-cart-count]').forEach(el => {
-        if (!visible) {
-          el.textContent = '';
-          el.hidden = true;
-          el.classList.remove('is-visible');
-          el.setAttribute('aria-hidden', 'true');
-        }
-      });
-      return;
-    }
-    lastPaint = n;
+    const text = visible ? String(n) : '';
 
-    document.querySelectorAll('[data-cart-count]').forEach(el => {
-      el.textContent = visible ? String(n) : '';
-      el.hidden = !visible;
+    if (el.textContent !== text) el.textContent = text;
+    if (el.hidden === visible) el.hidden = !visible;
+    if (el.classList.contains('is-visible') !== visible) {
       el.classList.toggle('is-visible', visible);
+    }
+    if (el.getAttribute('aria-hidden') !== (visible ? 'false' : 'true')) {
       el.setAttribute('aria-hidden', visible ? 'false' : 'true');
-      if (!visible) el.style.display = 'none';
-      else el.style.removeProperty('display');
-    });
+    }
+    if (!visible) {
+      if (el.style.display !== 'none') el.style.display = 'none';
+    } else if (el.style.display === 'none') {
+      el.style.removeProperty('display');
+    }
+  }
+
+  function paint(count) {
+    document.querySelectorAll('[data-cart-count]').forEach(el => setBadge(el, count));
   }
 
   function validCart() {
@@ -108,17 +105,12 @@
     } catch (_) {}
   }
 
-  function hardHideBeforeCatalog() {
-    if (catalogReady()) return;
-    paint(0);
-  }
-
   function boot() {
     paint(0);
     installGlobalOverrides();
 
     const timer = window.setInterval(() => {
-      hardHideBeforeCatalog();
+      if (!catalogReady()) paint(0);
       installGlobalOverrides();
       if (bindCatalog() && catalogReady()) {
         reconcile();
@@ -135,16 +127,12 @@
     window.addEventListener('storage', event => {
       if (event.key === CART_KEY) reconcile();
     });
-
-    window.addEventListener('pageshow', () => reconcile());
+    window.addEventListener('pageshow', reconcile);
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') reconcile();
     });
 
-    const observer = new MutationObserver(() => {
-      if (!catalogReady()) paint(0);
-      else reconcile();
-    });
+    const observer = new MutationObserver(() => reconcile());
     observer.observe(document.documentElement, { childList: true, subtree: true });
     window.setTimeout(() => observer.disconnect(), 15000);
   }
