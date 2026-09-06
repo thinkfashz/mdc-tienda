@@ -162,9 +162,7 @@
       if (dismissed === serverVersion) return;
 
       showUpdate(serverVersion);
-    } catch (_) {
-      /* Sin conexión no se interrumpe la app. */
-    }
+    } catch (_) {}
   }
 
   async function registerLatestWorker() {
@@ -172,7 +170,7 @@
     try {
       let registration = await navigator.serviceWorker.getRegistration('./');
       if (!registration) {
-        registration = await navigator.serviceWorker.register('sw.js?v=9', {
+        registration = await navigator.serviceWorker.register('sw.js?v=10', {
           scope: './',
           updateViaCache: 'none'
         });
