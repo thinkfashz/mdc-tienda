@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">MDC Ferretería Linares</title>
+  <desc id="desc">Vista previa de enlace compartido con pantalla de carga de MDC Ferretería.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#050505"/>
+      <stop offset=".55" stop-color="#0b0b0b"/>
+      <stop offset="1" stop-color="#14100d"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="48%" r="60%">
+      <stop offset="0" stop-color="#ff7a1a" stop-opacity=".18"/>
+      <stop offset="1" stop-color="#ff7a1a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="orange" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ff6a00"/>
+      <stop offset="1" stop-color="#ff9a3d"/>
+    </linearGradient>
+    <linearGradient id="steel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset=".48" stop-color="#bdbdbd"/>
+      <stop offset="1" stop-color="#f2f2f2"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#000000" flood-opacity=".55"/>
+    </filter>
+    <filter id="orangeGlow" x="-30%" y="-100%" width="160%" height="300%">
+      <feGaussianBlur stdDeviation="8" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0V40" fill="none" stroke="#ffffff" stroke-opacity=".025" stroke-width="1"/>
+    </pattern>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+  <rect width="1200" height="630" fill="url(#grid)"/>
+
+  <g transform="translate(600 86)" text-anchor="middle">
+    <text x="0" y="0" fill="url(#steel)" font-family="Arial, Helvetica, sans-serif" font-size="82" font-weight="900" letter-spacing="-5">M<tspan fill="url(#orange)">D</tspan>C</text>
+    <text x="0" y="43" fill="#f4f4f4" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" letter-spacing="11">FERRETERÍA</text>
+    <text x="0" y="76" fill="#cfc8c1" font-family="Arial, Helvetica, sans-serif" font-size="14" letter-spacing="5">TU PROYECTO, NUESTRA META</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="106" y="194" width="988" height="244" rx="28" fill="#0d0d0d" stroke="#ff7a1a" stroke-opacity=".55"/>
+    <rect x="106" y="194" width="988" height="244" rx="28" fill="none" stroke="#ffffff" stroke-opacity=".06"/>
+  </g>
+
+  <text x="600" y="245" text-anchor="middle" fill="#f8f8f8" font-family="Arial, Helvetica, sans-serif" font-size="31" font-weight="800">Cargando tienda...</text>
+  <text x="600" y="278" text-anchor="middle" fill="#aaa39b" font-family="Arial, Helvetica, sans-serif" font-size="16">Herramientas y materiales para hacer realidad tu proyecto</text>
+
+  <g transform="translate(430 292)" filter="url(#shadow)">
+    <rect x="0" y="6" width="228" height="76" rx="8" fill="#101010" stroke="#ff7a1a" stroke-width="2"/>
+    <rect x="164" y="30" width="82" height="52" rx="7" fill="url(#orange)"/>
+    <path d="M178 30h44l18 19v33h-62z" fill="#f3842d"/>
+    <rect x="182" y="36" width="31" height="20" rx="3" fill="#1c1c1c"/>
+    <rect x="22" y="26" width="118" height="34" rx="5" fill="#171717"/>
+    <text x="81" y="49" text-anchor="middle" fill="#ffffff" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="900">M<tspan fill="#ff7a1a">D</tspan>C</text>
+    <text x="81" y="65" text-anchor="middle" fill="#ff8a34" font-family="Arial, Helvetica, sans-serif" font-size="8" font-weight="700" letter-spacing="2">FERRETERÍA</text>
+    <circle cx="52" cy="82" r="16" fill="#090909" stroke="#6d6d6d" stroke-width="3"/>
+    <circle cx="52" cy="82" r="6" fill="#c9c9c9"/>
+    <circle cx="204" cy="82" r="16" fill="#090909" stroke="#6d6d6d" stroke-width="3"/>
+    <circle cx="204" cy="82" r="6" fill="#c9c9c9"/>
+  </g>
+
+  <g>
+    <rect x="180" y="389" width="840" height="28" rx="14" fill="#191919" stroke="#ffffff" stroke-opacity=".12"/>
+    <rect x="182" y="391" width="635" height="24" rx="12" fill="url(#orange)" filter="url(#orangeGlow)"/>
+    <rect x="796" y="391" width="28" height="24" rx="12" fill="#ffd0a8" opacity=".65"/>
+  </g>
+
+  <g transform="translate(145 468)" font-family="Arial, Helvetica, sans-serif">
+    <g>
+      <circle cx="80" cy="35" r="27" fill="#ff7a1a" fill-opacity=".12" stroke="#ff7a1a" stroke-opacity=".6"/>
+      <path d="M80 20l14 5v10c0 10-6 17-14 21-8-4-14-11-14-21V25z" fill="none" stroke="#ff8a34" stroke-width="3"/>
+      <text x="118" y="30" fill="#ffffff" font-size="14" font-weight="800">MARCAS</text>
+      <text x="118" y="49" fill="#a8a39c" font-size="13">CONFIABLES</text>
+    </g>
+    <g transform="translate(320 0)">
+      <circle cx="80" cy="35" r="27" fill="#ff7a1a" fill-opacity=".12" stroke="#ff7a1a" stroke-opacity=".6"/>
+      <path d="M67 26l13-7 13 7v18l-13 7-13-7z" fill="none" stroke="#ff8a34" stroke-width="3"/>
+      <path d="M67 26l13 7 13-7M80 33v18" fill="none" stroke="#ff8a34" stroke-width="3"/>
+      <text x="118" y="30" fill="#ffffff" font-size="14" font-weight="800">STOCK</text>
+      <text x="118" y="49" fill="#a8a39c" font-size="13">REAL</text>
+    </g>
+    <g transform="translate(640 0)">
+      <circle cx="80" cy="35" r="27" fill="#ff7a1a" fill-opacity=".12" stroke="#ff7a1a" stroke-opacity=".6"/>
+      <path d="M67 41h26v-14H80l-5-6h-8z" fill="none" stroke="#ff8a34" stroke-width="3"/>
+      <circle cx="72" cy="45" r="3.5" fill="#ff8a34"/>
+      <circle cx="88" cy="45" r="3.5" fill="#ff8a34"/>
+      <text x="118" y="30" fill="#ffffff" font-size="14" font-weight="800">TU PROYECTO</text>
+      <text x="118" y="49" fill="#a8a39c" font-size="13">EN MOVIMIENTO</text>
+    </g>
+  </g>
+
+  <line x1="110" y1="569" x2="1090" y2="569" stroke="#ff7a1a" stroke-opacity=".45"/>
+  <text x="600" y="600" text-anchor="middle" fill="#d8d2cb" font-family="Arial, Helvetica, sans-serif" font-size="15" letter-spacing="2">MDC FERRETERÍA · RENGO 1392 · LINARES, CHILE</text>
+</svg>
