@@ -27,14 +27,14 @@ body.mdc-splash-lock { overflow: auto !important; }
   pointer-events: none;
   transform: translateZ(0);
   transition:
-    opacity .32s cubic-bezier(.22,.7,.2,1),
-    visibility .32s ease,
-    backdrop-filter .34s ease,
-    -webkit-backdrop-filter .34s ease;
+    opacity .18s cubic-bezier(.22,.7,.2,1),
+    visibility .18s ease,
+    backdrop-filter .2s ease,
+    -webkit-backdrop-filter .2s ease;
   overflow: hidden;
   isolation: isolate;
   contain: layout paint style;
-  animation: mdcSplashFailsafe 3.75s linear forwards;
+  animation: mdcSplashFailsafe 1.55s linear forwards;
 }
 
 .mdc-splash::before {
@@ -77,7 +77,7 @@ body.mdc-splash-lock { overflow: auto !important; }
   filter: drop-shadow(0 9px 28px rgba(255,105,0,.2));
   transform: translateY(8px) scale(.95);
   opacity: 0;
-  animation: mdcLogoIn .58s cubic-bezier(.2,.8,.2,1) .08s forwards;
+  animation: mdcLogoIn .28s cubic-bezier(.2,.8,.2,1) .04s forwards;
 }
 
 .mdc-splash-stage {
@@ -105,7 +105,7 @@ body.mdc-splash-lock { overflow: auto !important; }
   border-radius: inherit;
   background: linear-gradient(90deg, #ff6500, #ff9a32);
   box-shadow: 0 0 16px rgba(255,112,0,.34);
-  animation: mdcBarFill 2.56s cubic-bezier(.16,.72,.2,1) .2s forwards;
+  animation: mdcBarFill .72s cubic-bezier(.16,.72,.2,1) .08s forwards;
 }
 
 .mdc-splash-truck {
@@ -117,7 +117,7 @@ body.mdc-splash-lock { overflow: auto !important; }
   z-index: 4;
   will-change: transform;
   transform: translate3d(-4px,0,0);
-  animation: mdcTruckDrive 2.5s cubic-bezier(.16,.72,.2,1) .18s forwards;
+  animation: mdcTruckDrive .72s cubic-bezier(.16,.72,.2,1) .08s forwards;
   filter: drop-shadow(0 7px 10px rgba(0,0,0,.44));
 }
 
@@ -139,7 +139,7 @@ body.mdc-splash-lock { overflow: auto !important; }
   border-radius: 50%;
   background: radial-gradient(circle at 50% 50%, #777 0 18%, #202020 20% 52%, #050505 54% 100%);
   box-shadow: 0 1px 3px rgba(0,0,0,.5);
-  animation: mdcWheelSpin .34s linear infinite;
+  animation: mdcWheelSpin .18s linear infinite;
 }
 .mdc-wheel.rear { left: 20%; }
 .mdc-wheel.front { left: 76%; }
@@ -149,7 +149,7 @@ body.mdc-splash-lock { overflow: auto !important; }
   gap: 4px;
   opacity: 0;
   transform: translateY(6px);
-  animation: mdcFadeUp .46s ease .5s forwards;
+  animation: mdcFadeUp .24s ease .16s forwards;
 }
 .mdc-splash-copy strong {
   font-size: clamp(19px, 4.4vw, 25px);
@@ -166,11 +166,11 @@ body.mdc-splash-lock { overflow: auto !important; }
   font-weight: 750;
   letter-spacing: .15em;
   text-transform: uppercase;
-  animation: mdcFadeUp .4s ease .78s forwards;
+  animation: mdcFadeUp .22s ease .24s forwards;
 }
 
 @keyframes mdcSplashFailsafe {
-  0%, 91% { opacity: 1; visibility: visible; }
+  0%, 88% { opacity: 1; visibility: visible; }
   100% { opacity: 0; visibility: hidden; }
 }
 @keyframes mdcLogoIn { to { opacity: 1; transform: translateY(0) scale(1); } }
@@ -302,6 +302,6 @@ body.mdc-splash-lock { overflow: auto !important; }
     animation-iteration-count: 1 !important;
     transition-duration: .01ms !important;
   }
-  .mdc-splash { animation: mdcSplashFailsafe 1.5s linear forwards !important; }
+  .mdc-splash { animation: mdcSplashFailsafe .45s linear forwards !important; }
   .grid-products.is-rendering-products { filter: none; opacity: 1; transform: none; }
 }
