@@ -1,5 +1,5 @@
-/* MDC Ferretería · PWA robusta para app instalada */
-const CACHE = "mdc-store-shell-v8";
+/* MDC Ferretería · PWA rápida para app instalada */
+const CACHE = "mdc-store-shell-v9";
 const CACHE_PREFIX = "mdc-store-shell-";
 
 const CORE = [
@@ -21,7 +21,6 @@ const CORE = [
   "./splash-loader.js",
   "./loader-guard.js",
   "./cart-state-guard.js",
-  "./app-integrity.js",
   "./app-update.js",
   "./catalog.snapshot.json",
   "./manifest.webmanifest",
@@ -33,19 +32,12 @@ const CORE = [
   "./assets/p-cable.png",
   "./assets/p-pintura.png",
   "./assets/p-metalcon.png",
-  "./assets/p-llaves.png",
-  "./assets/truck.jpeg",
-  "./assets/welder.jpeg",
-  "./assets/letrero.jpeg",
-  "./assets/logo-metal.jpeg"
+  "./assets/p-llaves.png"
 ];
 
 function sameOrigin(request) {
-  try {
-    return new URL(request.url).origin === self.location.origin;
-  } catch (_) {
-    return false;
-  }
+  try { return new URL(request.url).origin === self.location.origin; }
+  catch (_) { return false; }
 }
 
 function canonicalUrl(input) {
@@ -55,38 +47,38 @@ function canonicalUrl(input) {
   return url.toString();
 }
 
-async function cacheMatchIgnoringVersion(request) {
+async function cacheMatch(request) {
   const cache = await caches.open(CACHE);
   return cache.match(request, { ignoreSearch: true });
 }
 
-async function cachePutCanonical(request, response) {
+async function cachePut(request, response) {
   if (!response || !response.ok) return response;
   const cache = await caches.open(CACHE);
   await cache.put(canonicalUrl(request), response.clone());
   return response;
 }
 
-async function networkFirst(request) {
-  try {
-    const response = await fetch(request, { cache: "no-store" });
-    if (response.ok) await cachePutCanonical(request, response);
-    return response;
-  } catch (_) {
-    return (await cacheMatchIgnoringVersion(request)) || Response.error();
-  }
+async function fetchAndCache(request, cacheMode = "no-store") {
+  const response = await fetch(request, { cache: cacheMode });
+  if (response.ok) await cachePut(request, response);
+  return response;
+}
+
+async function staleWhileRevalidate(request, event) {
+  const cached = await cacheMatch(request);
+  const refresh = fetchAndCache(request).catch(() => null);
+  if (event) event.waitUntil(refresh);
+  if (cached) return cached;
+  return (await refresh) || Response.error();
 }
 
 self.addEventListener("install", event => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE);
-    await Promise.all(CORE.map(async url => {
-      try {
-        const response = await fetch(url, { cache: "reload" });
-        if (response.ok) await cache.put(canonicalUrl(url), response);
-      } catch (_) {
-        // Un recurso opcional no debe cancelar la actualización completa.
-      }
+    await Promise.allSettled(CORE.map(async url => {
+      const response = await fetch(url, { cache: "reload" });
+      if (response.ok) await cache.put(canonicalUrl(url), response);
     }));
     await self.skipWaiting();
   })());
@@ -95,11 +87,9 @@ self.addEventListener("install", event => {
 self.addEventListener("activate", event => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
-    await Promise.all(
-      keys
-        .filter(key => key.startsWith(CACHE_PREFIX) && key !== CACHE)
-        .map(key => caches.delete(key))
-    );
+    await Promise.all(keys
+      .filter(key => key.startsWith(CACHE_PREFIX) && key !== CACHE)
+      .map(key => caches.delete(key)));
     await self.clients.claim();
   })());
 });
@@ -116,41 +106,34 @@ self.addEventListener("fetch", event => {
     return;
   }
 
+  /* PWA instalada: pinta desde cache al instante y actualiza silenciosamente. */
   if (req.mode === "navigate") {
     event.respondWith((async () => {
-      try {
-        const fresh = await fetch(req, { cache: "no-store" });
-        await cachePutCanonical(req, fresh);
-        return fresh;
-      } catch (_) {
-        return (await cacheMatchIgnoringVersion(req))
-          || (await cacheMatchIgnoringVersion(new Request(new URL("./index.html", self.location).toString())))
-          || Response.error();
-      }
+      const cached = await cacheMatch(req);
+      const refresh = fetchAndCache(req).catch(() => null);
+      event.waitUntil(refresh);
+      if (cached) return cached;
+      return (await refresh)
+        || (await cacheMatch(new Request(new URL("./index.html", self.location).toString())))
+        || Response.error();
     })());
     return;
   }
 
   if (path.endsWith("/catalog.snapshot.json")) {
-    event.respondWith(networkFirst(req));
+    event.respondWith(staleWhileRevalidate(req, event));
     return;
   }
 
   if (/\.(?:js|css|webmanifest)$/i.test(path)) {
-    event.respondWith(networkFirst(req));
+    event.respondWith(staleWhileRevalidate(req, event));
     return;
   }
 
   event.respondWith((async () => {
-    const cached = await cacheMatchIgnoringVersion(req);
+    const cached = await cacheMatch(req);
     if (cached) return cached;
-
-    try {
-      const fresh = await fetch(req);
-      if (fresh.ok) await cachePutCanonical(req, fresh);
-      return fresh;
-    } catch (_) {
-      return Response.error();
-    }
+    try { return await fetchAndCache(req, "default"); }
+    catch (_) { return Response.error(); }
   })());
 });
