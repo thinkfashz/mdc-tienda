@@ -1,0 +1,316 @@
+/* MDC Ferretería · Splash premium + refinamiento visual móvil */
+:root {
+  --mdc-orange: #ff7200;
+  --mdc-orange-2: #ff9b20;
+  --mdc-ink: #080808;
+  --mdc-surface: #121212;
+}
+
+body.mdc-splash-lock { overflow: hidden !important; }
+
+.mdc-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  padding: max(24px, env(safe-area-inset-top)) 18px max(24px, env(safe-area-inset-bottom));
+  color: #fff;
+  background:
+    radial-gradient(70% 42% at 50% 43%, rgba(255,114,0,.13), transparent 68%),
+    radial-gradient(46% 28% at 50% 92%, rgba(255,114,0,.08), transparent 70%),
+    linear-gradient(180deg, #050505 0%, #090909 54%, #050505 100%);
+  opacity: 1;
+  transform: translateZ(0);
+  transition: opacity .32s ease, visibility .32s ease;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.mdc-splash::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: .38;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px);
+  background-size: 30px 30px;
+  mask-image: linear-gradient(to bottom, transparent 2%, #000 24%, #000 72%, transparent 100%);
+}
+
+.mdc-splash.is-exiting {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.mdc-splash-inner {
+  width: min(92vw, 760px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(10px, 2vh, 18px);
+  text-align: center;
+}
+
+.mdc-splash-logo {
+  width: min(72vw, 410px);
+  max-height: 180px;
+  object-fit: contain;
+  filter: drop-shadow(0 9px 30px rgba(255,105,0,.18));
+  transform: translateY(5px) scale(.96);
+  opacity: 0;
+  animation: mdcLogoIn .48s cubic-bezier(.2,.8,.2,1) .05s forwards;
+}
+
+.mdc-splash-stage {
+  position: relative;
+  width: min(88vw, 680px);
+  height: clamp(112px, 18vw, 154px);
+  margin-top: -4px;
+}
+
+.mdc-splash-track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 9px;
+  height: clamp(38px, 7vw, 54px);
+  border-radius: 999px;
+  background: linear-gradient(180deg, #181818, #0b0b0b);
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,.08),
+    0 12px 35px rgba(0,0,0,.5);
+  overflow: hidden;
+}
+
+.mdc-splash-bar-mask {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  animation: mdcBarFill 1.72s cubic-bezier(.18,.72,.2,1) .16s forwards;
+}
+
+.mdc-splash-bar-art {
+  display: block;
+  width: min(88vw, 680px);
+  height: 100%;
+  max-width: none;
+  object-fit: fill;
+}
+
+.mdc-splash-track::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border-radius: inherit;
+  pointer-events: none;
+  border: 1px solid rgba(255,143,42,.32);
+  box-shadow: inset 0 0 14px rgba(255,104,0,.12);
+}
+
+.mdc-splash-truck {
+  position: absolute;
+  left: 0;
+  bottom: 19px;
+  width: clamp(156px, 34vw, 228px);
+  aspect-ratio: 3 / 2;
+  z-index: 4;
+  will-change: transform;
+  filter: drop-shadow(0 10px 12px rgba(0,0,0,.52));
+}
+
+.mdc-splash-truck-body {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.mdc-splash-wheel {
+  position: absolute;
+  z-index: 6;
+  width: 16.4%;
+  height: auto;
+  aspect-ratio: 1;
+  bottom: 9.2%;
+  object-fit: contain;
+  animation: mdcWheelSpin .52s linear infinite;
+  filter: drop-shadow(0 2px 3px rgba(0,0,0,.45));
+}
+
+.mdc-splash-wheel.rear { left: 18.7%; }
+.mdc-splash-wheel.front { left: 76.0%; }
+
+.mdc-splash-loading-text {
+  width: min(72vw, 440px);
+  height: auto;
+  object-fit: contain;
+  margin-top: 0;
+  opacity: 0;
+  animation: mdcFadeUp .42s ease .35s forwards;
+}
+
+.mdc-splash-subtitle {
+  width: min(76vw, 500px);
+  height: auto;
+  object-fit: contain;
+  opacity: 0;
+  animation: mdcFadeUp .42s ease .55s forwards;
+}
+
+.mdc-splash-badges {
+  width: min(86vw, 560px);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0,1fr));
+  gap: clamp(8px, 2.2vw, 18px);
+  align-items: start;
+  margin-top: -2px;
+  opacity: 0;
+  animation: mdcFadeUp .42s ease .72s forwards;
+}
+
+.mdc-splash-badge {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: contain;
+  opacity: .94;
+}
+
+@keyframes mdcLogoIn {
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes mdcBarFill { to { width: 100%; } }
+@keyframes mdcWheelSpin { to { transform: rotate(360deg); } }
+@keyframes mdcFadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Logo real de marca en navegación y footer */
+.nav-logo img.mdc-brand-logo {
+  width: 104px !important;
+  height: 46px !important;
+  object-fit: contain !important;
+  border-radius: 0 !important;
+  filter: drop-shadow(0 4px 12px rgba(255,114,0,.18));
+}
+.nav-logo .nav-brand { display: none !important; }
+.footer-logo.mdc-brand-logo {
+  width: min(170px, 42vw) !important;
+  height: auto !important;
+  object-fit: contain;
+}
+
+/* Escenario de producto: más grande, sin recortar y con mejor lectura */
+.prod-img {
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: clamp(9px, 1.5vw, 14px);
+  background:
+    radial-gradient(circle at 50% 38%, rgba(255,255,255,.07), transparent 52%),
+    linear-gradient(180deg, #171717, #0e0e0e) !important;
+}
+.prod-img::after {
+  content: "";
+  position: absolute;
+  inset: auto 14% 7% 14%;
+  height: 8%;
+  border-radius: 50%;
+  background: rgba(0,0,0,.38);
+  filter: blur(8px);
+  pointer-events: none;
+}
+.prod-img img {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  object-fit: contain !important;
+  transform: none !important;
+  filter: drop-shadow(0 10px 14px rgba(0,0,0,.28));
+}
+.prod:hover .prod-img img { transform: scale(1.025) !important; }
+.prod-nombre { letter-spacing: -.015em; }
+.prod-precio b { font-variant-numeric: tabular-nums; }
+
+@media (max-width: 820px) {
+  .mdc-splash-inner { width: 100%; gap: 8px; }
+  .mdc-splash-logo { width: min(78vw, 360px); max-height: 148px; }
+  .mdc-splash-stage { width: 91vw; height: 120px; }
+  .mdc-splash-track { height: 42px; bottom: 8px; }
+  .mdc-splash-bar-art { width: 91vw; }
+  .mdc-splash-truck { width: clamp(158px, 39vw, 198px); bottom: 16px; }
+  .mdc-splash-loading-text { width: min(76vw, 360px); }
+  .mdc-splash-subtitle { width: min(82vw, 390px); }
+  .mdc-splash-badges { width: min(91vw, 440px); gap: 3px; }
+  .mdc-splash-badge { transform: scale(.96); }
+
+  .nav-logo img.mdc-brand-logo {
+    width: 92px !important;
+    height: 44px !important;
+  }
+
+  .grid-products {
+    gap: 12px !important;
+  }
+  .prod {
+    border-radius: 20px !important;
+  }
+  .prod-img {
+    aspect-ratio: 1 / 1.03 !important;
+    padding: 11px !important;
+  }
+  .prod-body {
+    padding: 12px 12px 14px !important;
+  }
+  .prod-marca {
+    font-size: 9.5px !important;
+    letter-spacing: .11em !important;
+  }
+  .prod-nombre {
+    min-height: 2.62em !important;
+    font-size: 14px !important;
+    line-height: 1.31 !important;
+  }
+  .stock-badge {
+    font-size: 10px !important;
+    padding: 4px 8px !important;
+  }
+  .prod-precio b {
+    font-size: 15.5px !important;
+  }
+  .prod-add {
+    width: 40px !important;
+    height: 40px !important;
+    min-height: 40px !important;
+    border-radius: 13px !important;
+  }
+}
+
+@media (max-width: 380px) {
+  .mdc-splash-logo { width: 76vw; }
+  .mdc-splash-stage { height: 108px; }
+  .mdc-splash-truck { width: 154px; }
+  .mdc-splash-badges { width: 96vw; }
+  .prod-nombre { font-size: 13px !important; }
+  .prod-precio b { font-size: 14px !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mdc-splash *, .mdc-splash *::before, .mdc-splash *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+  .mdc-splash-wheel { animation: none !important; }
+}
