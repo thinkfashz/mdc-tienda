@@ -36,14 +36,31 @@
     }
   }
 
-  function setPremiumBrandImages() {
-    document.querySelectorAll('.nav-logo img').forEach(img => {
-      img.src = MEDIA.logo;
-      img.alt = 'MDC Ferretería';
-      img.classList.add('mdc-brand-logo');
-    });
+  function ensureBrandStyle() {
+    if (document.getElementById('mdc-premium-brand-style')) return;
+    const style = document.createElement('style');
+    style.id = 'mdc-premium-brand-style';
+    style.textContent = `
+      .nav-logo img.mdc-brand-logo,
+      .footer-logo.mdc-brand-logo,
+      .mobile-install-banner img.mdc-brand-logo{
+        object-fit:contain !important;
+        object-position:center !important;
+      }
+      .nav-logo img.mdc-brand-logo{
+        border-radius:0 !important;
+        background:transparent !important;
+      }
+      .footer-logo.mdc-brand-logo{
+        max-width:150px;
+        height:auto;
+      }
+    `;
+    document.head.appendChild(style);
+  }
 
-    document.querySelectorAll('.footer-logo').forEach(img => {
+  function setPremiumBrandImages() {
+    document.querySelectorAll('.nav-logo img, .footer-logo, .mobile-install-banner img').forEach(img => {
       img.src = MEDIA.logo;
       img.alt = 'MDC Ferretería';
       img.classList.add('mdc-brand-logo');
@@ -171,13 +188,14 @@
 
   function boot() {
     loadMarketplaceLayer();
+    ensureBrandStyle();
     setPremiumBrandImages();
     showSplash();
 
-    // Si algún bloque se re-renderiza después de cargar el catálogo, conserva el logo premium.
+    // Conserva la marca premium aunque otras capas re-rendericen header/footer/banner.
     const observer = new MutationObserver(() => setPremiumBrandImages());
     observer.observe(document.body, { childList: true, subtree: true });
-    window.setTimeout(() => observer.disconnect(), 5000);
+    window.setTimeout(() => observer.disconnect(), 7000);
   }
 
   if (document.readyState === 'loading') {
