@@ -1,7 +1,9 @@
-/* MDC Ferretería · estado autoritativo del carrito */
+/* MDC Ferretería · estado autoritativo del carrito sin polling pesado */
 (() => {
   const CART_KEY = 'mdc-cart';
   let boundToCatalog = false;
+  let attempts = 0;
+  let bootTimer = 0;
 
   function rawCart() {
     try {
@@ -9,10 +11,7 @@
       if (!Array.isArray(parsed)) return [];
       return parsed
         .filter(item => item && item.id && Number.isFinite(Number(item.qty)) && Number(item.qty) > 0)
-        .map(item => ({
-          id: String(item.id),
-          qty: Math.max(1, Math.floor(Number(item.qty)))
-        }));
+        .map(item => ({ id: String(item.id), qty: Math.max(1, Math.floor(Number(item.qty))) }));
     } catch (_) {
       return [];
     }
@@ -35,21 +34,12 @@
   function setBadge(el, count) {
     const n = Math.max(0, Number(count) || 0);
     const visible = n > 0;
-    const text = visible ? String(n) : '';
-
-    if (el.textContent !== text) el.textContent = text;
-    if (el.hidden === visible) el.hidden = !visible;
-    if (el.classList.contains('is-visible') !== visible) {
-      el.classList.toggle('is-visible', visible);
-    }
-    if (el.getAttribute('aria-hidden') !== (visible ? 'false' : 'true')) {
-      el.setAttribute('aria-hidden', visible ? 'false' : 'true');
-    }
-    if (!visible) {
-      if (el.style.display !== 'none') el.style.display = 'none';
-    } else if (el.style.display === 'none') {
-      el.style.removeProperty('display');
-    }
+    el.textContent = visible ? String(n) : '';
+    el.hidden = !visible;
+    el.classList.toggle('is-visible', visible);
+    el.setAttribute('aria-hidden', visible ? 'false' : 'true');
+    if (!visible) el.style.display = 'none';
+    else el.style.removeProperty('display');
   }
 
   function paint(count) {
@@ -59,13 +49,13 @@
   function validCart() {
     if (!catalogReady()) return [];
     const original = rawCart();
+    if (!LiveCatalog.products.length) return [];
+
     const valid = original.filter(item => {
       try { return !!LiveCatalog.byId(item.id); } catch (_) { return false; }
     });
 
-    const changed = valid.length !== original.length
-      || valid.some((item, index) => item.id !== original[index]?.id || item.qty !== original[index]?.qty);
-    if (changed) persist(valid);
+    if (valid.length !== original.length) persist(valid);
     return valid;
   }
 
@@ -74,7 +64,6 @@
       paint(0);
       return 0;
     }
-
     const valid = validCart();
     const count = valid.reduce((sum, item) => sum + item.qty, 0);
     paint(count);
@@ -85,9 +74,7 @@
     if (boundToCatalog) return true;
     try {
       if (typeof LiveCatalog === 'undefined') return false;
-      if (typeof LiveCatalog.onChange === 'function') {
-        LiveCatalog.onChange(() => reconcile());
-      }
+      if (typeof LiveCatalog.onChange === 'function') LiveCatalog.onChange(reconcile);
       boundToCatalog = true;
       return true;
     } catch (_) {
@@ -97,32 +84,30 @@
 
   function installGlobalOverrides() {
     try {
-      globalThis.cartCount = () => {
-        if (!catalogReady()) return 0;
-        return validCart().reduce((sum, item) => sum + item.qty, 0);
-      };
-      globalThis.updateCartCount = () => reconcile();
+      globalThis.cartCount = () => catalogReady()
+        ? validCart().reduce((sum, item) => sum + item.qty, 0)
+        : 0;
+      globalThis.updateCartCount = reconcile;
     } catch (_) {}
+  }
+
+  function waitForCatalog() {
+    attempts += 1;
+    installGlobalOverrides();
+
+    if (bindCatalog() && catalogReady()) {
+      reconcile();
+      return;
+    }
+
+    paint(0);
+    if (attempts < 30) bootTimer = window.setTimeout(waitForCatalog, 140);
   }
 
   function boot() {
     paint(0);
     installGlobalOverrides();
-
-    const timer = window.setInterval(() => {
-      if (!catalogReady()) paint(0);
-      installGlobalOverrides();
-      if (bindCatalog() && catalogReady()) {
-        reconcile();
-        window.clearInterval(timer);
-      }
-    }, 120);
-
-    window.setTimeout(() => {
-      window.clearInterval(timer);
-      bindCatalog();
-      reconcile();
-    }, 12000);
+    waitForCatalog();
 
     window.addEventListener('storage', event => {
       if (event.key === CART_KEY) reconcile();
@@ -131,15 +116,15 @@
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') reconcile();
     });
+    document.addEventListener('mdc:cart-changed', reconcile);
 
-    const observer = new MutationObserver(() => reconcile());
-    observer.observe(document.documentElement, { childList: true, subtree: true });
-    window.setTimeout(() => observer.disconnect(), 15000);
+    window.setTimeout(() => {
+      if (bootTimer) clearTimeout(bootTimer);
+      bindCatalog();
+      reconcile();
+    }, 4500);
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', boot, { once: true });
-  } else {
-    boot();
-  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
+  else boot();
 })();
