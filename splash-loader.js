@@ -18,6 +18,15 @@
   const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const SPLASH_MS = reduceMotion ? 650 : 2000;
 
+  function loadScriptOnce(src, datasetKey) {
+    if (document.querySelector(`script[data-${datasetKey}]`)) return;
+    const script = document.createElement('script');
+    script.src = src;
+    script.defer = true;
+    script.setAttribute(`data-${datasetKey}`, '1');
+    document.head.appendChild(script);
+  }
+
   function loadMarketplaceLayer() {
     if (!document.querySelector('link[data-mdc-marketplace]')) {
       const css = document.createElement('link');
@@ -52,6 +61,14 @@
       script.dataset.mdcContact = '1';
       document.head.appendChild(script);
     }
+  }
+
+  function loadIntegrityLayer() {
+    loadScriptOnce('app-integrity.js?v=1', 'mdc-integrity');
+  }
+
+  function loadUpdateLayer() {
+    loadScriptOnce('app-update.js?v=1', 'mdc-app-update');
   }
 
   function ensureBrandStyle() {
@@ -205,6 +222,8 @@
   }
 
   function boot() {
+    loadIntegrityLayer();
+    loadUpdateLayer();
     loadMarketplaceLayer();
     loadContactLayer();
     ensureBrandStyle();
