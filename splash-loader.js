@@ -36,6 +36,24 @@
     }
   }
 
+  function loadContactLayer() {
+    if (!document.querySelector('link[data-mdc-contact]')) {
+      const css = document.createElement('link');
+      css.rel = 'stylesheet';
+      css.href = 'social-contact.css?v=1';
+      css.dataset.mdcContact = '1';
+      document.head.appendChild(css);
+    }
+
+    if (!document.querySelector('script[data-mdc-contact]')) {
+      const script = document.createElement('script');
+      script.src = 'social-contact.js?v=1';
+      script.defer = true;
+      script.dataset.mdcContact = '1';
+      document.head.appendChild(script);
+    }
+  }
+
   function ensureBrandStyle() {
     if (document.getElementById('mdc-premium-brand-style')) return;
     const style = document.createElement('style');
@@ -188,6 +206,7 @@
 
   function boot() {
     loadMarketplaceLayer();
+    loadContactLayer();
     ensureBrandStyle();
     setPremiumBrandImages();
     showSplash();
