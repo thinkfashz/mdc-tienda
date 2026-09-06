@@ -100,16 +100,26 @@
     sheet.hidden = false;
   }
 
-  async function clearAppCaches() {
-    if (!('caches' in window)) return;
-    const keys = await caches.keys();
-    await Promise.all(keys.filter(key => key.startsWith('mdc-store-shell-')).map(key => caches.delete(key)));
+  async function getLatestRegistration() {
+    if (!('serviceWorker' in navigator)) return null;
+    let registration = await navigator.serviceWorker.getRegistration('./');
+    if (!registration) {
+      registration = await navigator.serviceWorker.register('sw.js?v=13', {
+        scope: './',
+        updateViaCache: 'none'
+      });
+    }
+    return registration;
   }
 
-  async function unregisterWorkers() {
-    if (!('serviceWorker' in navigator)) return;
-    const registrations = await navigator.serviceWorker.getRegistrations();
-    await Promise.all(registrations.map(reg => reg.unregister().catch(() => false)));
+  async function prepareLatestWorker() {
+    const registration = await getLatestRegistration();
+    if (!registration) return null;
+    await registration.update().catch(() => null);
+    if (registration.waiting) {
+      registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+    }
+    return registration;
   }
 
   async function applyUpdate() {
@@ -123,14 +133,24 @@
     write(PENDING_KEY, pendingVersion);
 
     try {
-      remove('mdc-catalog-cache-v1');
-      await unregisterWorkers();
-      await clearAppCaches();
+      const registration = await prepareLatestWorker();
+      if (registration?.waiting) registration.waiting.postMessage({ type: 'SKIP_WAITING' });
     } catch (_) {}
 
     const next = new URL(location.href);
     next.searchParams.set('mdc_update', pendingVersion.slice(0, 8));
-    location.replace(next.toString());
+
+    let reloaded = false;
+    const reload = () => {
+      if (reloaded) return;
+      reloaded = true;
+      location.replace(next.toString());
+    };
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('controllerchange', reload, { once: true });
+    }
+    window.setTimeout(reload, 900);
   }
 
   async function checkForUpdate({ force = false } = {}) {
@@ -167,16 +187,7 @@
 
   async function registerLatestWorker() {
     if (!('serviceWorker' in navigator) || !/^https?:$/.test(location.protocol)) return;
-    try {
-      let registration = await navigator.serviceWorker.getRegistration('./');
-      if (!registration) {
-        registration = await navigator.serviceWorker.register('sw.js?v=12', {
-          scope: './',
-          updateViaCache: 'none'
-        });
-      }
-      await registration.update().catch(() => null);
-    } catch (_) {}
+    try { await prepareLatestWorker(); } catch (_) {}
   }
 
   function boot() {
