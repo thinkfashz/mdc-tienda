@@ -170,7 +170,7 @@
     try {
       let registration = await navigator.serviceWorker.getRegistration('./');
       if (!registration) {
-        registration = await navigator.serviceWorker.register('sw.js?v=10', {
+        registration = await navigator.serviceWorker.register('sw.js?v=12', {
           scope: './',
           updateViaCache: 'none'
         });
