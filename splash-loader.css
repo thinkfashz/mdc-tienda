@@ -26,6 +26,8 @@ body.mdc-splash-lock { overflow: hidden !important; }
   transition: opacity .32s ease, visibility .32s ease;
   overflow: hidden;
   isolation: isolate;
+  /* Failsafe CSS: incluso si JS se interrumpe, el splash deja de bloquear la app. */
+  animation: mdcSplashFailsafe 3.35s linear forwards;
 }
 
 .mdc-splash::before {
@@ -186,9 +188,11 @@ body.mdc-splash-lock { overflow: hidden !important; }
   opacity: .94;
 }
 
-@keyframes mdcLogoIn {
-  to { opacity: 1; transform: translateY(0) scale(1); }
+@keyframes mdcSplashFailsafe {
+  0%, 84% { opacity: 1; visibility: visible; pointer-events: auto; }
+  100% { opacity: 0; visibility: hidden; pointer-events: none; }
 }
+@keyframes mdcLogoIn { to { opacity: 1; transform: translateY(0) scale(1); } }
 @keyframes mdcBarFill { to { width: 100%; } }
 @keyframes mdcWheelSpin { to { transform: rotate(360deg); } }
 @keyframes mdcFadeUp {
@@ -256,46 +260,16 @@ body.mdc-splash-lock { overflow: hidden !important; }
   .mdc-splash-badges { width: min(91vw, 440px); gap: 3px; }
   .mdc-splash-badge { transform: scale(.96); }
 
-  .nav-logo img.mdc-brand-logo {
-    width: 92px !important;
-    height: 44px !important;
-  }
-
-  .grid-products {
-    gap: 12px !important;
-  }
-  .prod {
-    border-radius: 20px !important;
-  }
-  .prod-img {
-    aspect-ratio: 1 / 1.03 !important;
-    padding: 11px !important;
-  }
-  .prod-body {
-    padding: 12px 12px 14px !important;
-  }
-  .prod-marca {
-    font-size: 9.5px !important;
-    letter-spacing: .11em !important;
-  }
-  .prod-nombre {
-    min-height: 2.62em !important;
-    font-size: 14px !important;
-    line-height: 1.31 !important;
-  }
-  .stock-badge {
-    font-size: 10px !important;
-    padding: 4px 8px !important;
-  }
-  .prod-precio b {
-    font-size: 15.5px !important;
-  }
-  .prod-add {
-    width: 40px !important;
-    height: 40px !important;
-    min-height: 40px !important;
-    border-radius: 13px !important;
-  }
+  .nav-logo img.mdc-brand-logo { width: 92px !important; height: 44px !important; }
+  .grid-products { gap: 12px !important; }
+  .prod { border-radius: 20px !important; }
+  .prod-img { aspect-ratio: 1 / 1.03 !important; padding: 11px !important; }
+  .prod-body { padding: 12px 12px 14px !important; }
+  .prod-marca { font-size: 9.5px !important; letter-spacing: .11em !important; }
+  .prod-nombre { min-height: 2.62em !important; font-size: 14px !important; line-height: 1.31 !important; }
+  .stock-badge { font-size: 10px !important; padding: 4px 8px !important; }
+  .prod-precio b { font-size: 15.5px !important; }
+  .prod-add { width: 40px !important; height: 40px !important; min-height: 40px !important; border-radius: 13px !important; }
 }
 
 @media (max-width: 380px) {
@@ -313,4 +287,5 @@ body.mdc-splash-lock { overflow: hidden !important; }
     animation-iteration-count: 1 !important;
   }
   .mdc-splash-wheel { animation: none !important; }
+  .mdc-splash { animation: mdcSplashFailsafe .8s linear forwards !important; }
 }
