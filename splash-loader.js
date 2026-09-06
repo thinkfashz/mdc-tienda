@@ -1,16 +1,20 @@
-/* MDC Ferretería · Splash ultraligero y no bloqueante */
+/* MDC Ferretería · Gaussian Splash no bloqueante */
 (() => {
   const MEDIA = Object.freeze({
-    logo: 'https://res.cloudinary.com/disghf6xc/image/upload/f_auto,q_auto,w_520/v1788685244/mdc-premium-logo.png',
-    truck: 'https://res.cloudinary.com/disghf6xc/image/upload/f_auto,q_auto,w_360/v1788685315/mdc-truck.png'
+    logo: 'https://res.cloudinary.com/disghf6xc/image/upload/f_auto,q_auto,w_480/v1788685244/mdc-premium-logo.png',
+    truck: 'https://res.cloudinary.com/disghf6xc/image/upload/f_auto,q_auto,w_300/v1788685315/mdc-truck.png'
   });
 
   window.MDC_MEDIA = MEDIA;
 
-  const SESSION_KEY = 'mdc-premium-splash-v4';
+  const SESSION_KEY = 'mdc-premium-splash-v5';
   const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  const SPLASH_MS = reduceMotion ? 280 : 920;
-  const HARD_FAILSAFE_MS = 1450;
+  const MIN_VISIBLE_MS = reduceMotion ? 80 : 260;
+  const SOFT_LIMIT_MS = reduceMotion ? 180 : 720;
+  const HARD_FAILSAFE_MS = reduceMotion ? 260 : 1050;
+  let activeSplash = null;
+  let startedAt = 0;
+  let dismissed = false;
 
   function safeSessionGet(key) {
     try { return sessionStorage.getItem(key); } catch (_) { return null; }
@@ -58,11 +62,8 @@
 
   function scheduleLayers() {
     const run = () => loadLayers();
-    if ('requestIdleCallback' in window) {
-      requestIdleCallback(run, { timeout: 1200 });
-    } else {
-      window.setTimeout(run, 700);
-    }
+    if ('requestIdleCallback' in window) requestIdleCallback(run, { timeout: 1400 });
+    else window.setTimeout(run, 850);
   }
 
   function ensureBrandStyle() {
@@ -98,17 +99,30 @@
     return img;
   }
 
-  function dismissSplash(splash, immediate = false) {
+  function dismissSplash(immediate = false) {
+    if (dismissed) return;
+    dismissed = true;
+    const node = activeSplash || document.querySelector('.mdc-splash');
     document.body?.classList.remove('mdc-splash-lock');
-    const node = splash || document.querySelector('.mdc-splash');
     if (!node) return;
     node.classList.add('is-exiting');
     node.style.pointerEvents = 'none';
     if (immediate) {
       node.remove();
+      activeSplash = null;
       return;
     }
-    window.setTimeout(() => node.remove(), 220);
+    window.setTimeout(() => {
+      node.remove();
+      activeSplash = null;
+    }, 260);
+  }
+
+  function dismissWhenReady() {
+    if (!activeSplash || dismissed) return;
+    const elapsed = Date.now() - startedAt;
+    const wait = Math.max(0, MIN_VISIBLE_MS - elapsed);
+    window.setTimeout(() => dismissSplash(false), wait);
   }
 
   function buildSplash() {
@@ -121,7 +135,6 @@
 
     const inner = document.createElement('div');
     inner.className = 'mdc-splash-inner';
-
     const logo = image(MEDIA.logo, 'mdc-splash-logo', 'MDC Ferretería', 'high');
 
     const stage = document.createElement('div');
@@ -137,13 +150,9 @@
 
     const copy = document.createElement('div');
     copy.className = 'mdc-splash-copy';
-    copy.innerHTML = '<strong>Abriendo MDC</strong><span>Herramientas y materiales en Linares</span>';
+    copy.innerHTML = '<strong>MDC Ferretería</strong><span>Preparando tu catálogo</span>';
 
-    const badges = document.createElement('div');
-    badges.className = 'mdc-splash-badges';
-    badges.innerHTML = '<span>Marcas confiables</span><span>Stock actualizado</span><span>Despacho coordinado</span>';
-
-    inner.append(logo, stage, copy, badges);
+    inner.append(logo, stage, copy);
     splash.appendChild(inner);
     return splash;
   }
@@ -151,39 +160,39 @@
   function showSplash() {
     document.querySelectorAll('.mdc-splash').forEach(node => node.remove());
     document.body?.classList.remove('mdc-splash-lock');
-
     if (safeSessionGet(SESSION_KEY) === '1') return;
     safeSessionSet(SESSION_KEY, '1');
 
-    let splash;
+    dismissed = false;
     try {
-      splash = buildSplash();
-      document.body.appendChild(splash);
+      activeSplash = buildSplash();
+      startedAt = Date.now();
+      document.body.appendChild(activeSplash);
     } catch (_) {
+      activeSplash = null;
       return;
     }
 
-    const exitTimer = window.setTimeout(() => dismissSplash(splash), SPLASH_MS);
-    const hardTimer = window.setTimeout(() => dismissSplash(splash, true), HARD_FAILSAFE_MS);
+    document.addEventListener('mdc:catalog-ready', dismissWhenReady, { once: true });
 
-    const cleanup = () => {
-      clearTimeout(exitTimer);
-      clearTimeout(hardTimer);
-      dismissSplash(splash, true);
-    };
-    window.addEventListener('pagehide', cleanup, { once: true });
+    try {
+      if (typeof LiveCatalog !== 'undefined' && LiveCatalog.loaded) dismissWhenReady();
+    } catch (_) {}
+
+    window.setTimeout(() => dismissSplash(false), SOFT_LIMIT_MS);
+    window.setTimeout(() => dismissSplash(true), HARD_FAILSAFE_MS);
+    window.addEventListener('pagehide', () => dismissSplash(true), { once: true });
   }
 
   function recover() {
     const splash = document.querySelector('.mdc-splash');
     if (!splash) return;
-    const startedAt = Number(splash.dataset.startedAt || 0);
-    if (!startedAt || Date.now() - startedAt > HARD_FAILSAFE_MS) dismissSplash(splash, true);
+    const age = Date.now() - Number(splash.dataset.startedAt || 0);
+    if (!Number.isFinite(age) || age > HARD_FAILSAFE_MS) dismissSplash(true);
   }
 
   function boot() {
     preconnect();
-    loadScriptOnce('cart-state-guard.js?v=3', 'mdc-cart-state');
     ensureBrandStyle();
     setPremiumBrandImages();
     showSplash();
@@ -195,7 +204,7 @@
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') recover();
   });
-  window.setTimeout(recover, HARD_FAILSAFE_MS + 100);
+  window.setTimeout(recover, HARD_FAILSAFE_MS + 80);
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
   else boot();
