@@ -1,4 +1,4 @@
-const CACHE = "mdc-store-shell-v2";
+const CACHE = "mdc-store-shell-v3";
 const CORE = [
   "./",
   "./index.html",
@@ -7,8 +7,10 @@ const CORE = [
   "./checkout.html",
   "./styles.css",
   "./premium-mobile.css",
+  "./splash-loader.css",
   "./app.js",
   "./mobile-shell.js",
+  "./splash-loader.js",
   "./catalog.snapshot.json",
   "./manifest.webmanifest",
   "./assets/logo-claro.png"
