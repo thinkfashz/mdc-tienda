@@ -31,6 +31,11 @@
     }
   }
 
+  function isAuthoritativeStock() {
+    try { return LiveCatalog.source === 'network' && LiveCatalog.isLive === true; }
+    catch (_) { return false; }
+  }
+
   function setBadge(el, count) {
     const n = Math.max(0, Number(count) || 0);
     const visible = n > 0;
@@ -46,17 +51,25 @@
     document.querySelectorAll('[data-cart-count]').forEach(el => setBadge(el, count));
   }
 
-  function validCart() {
-    if (!catalogReady()) return [];
-    const original = rawCart();
-    if (!LiveCatalog.products.length) return [];
+  function normalizedCart() {
+    if (!catalogReady() || !LiveCatalog.products.length) return [];
+    const authoritative = isAuthoritativeStock();
+    const result = [];
 
-    const valid = original.filter(item => {
-      try { return !!LiveCatalog.byId(item.id); } catch (_) { return false; }
-    });
+    for (const item of rawCart()) {
+      let product = null;
+      try { product = LiveCatalog.byId(item.id); } catch (_) {}
+      if (!product) continue;
 
-    if (valid.length !== original.length) persist(valid);
-    return valid;
+      if (authoritative && product.stock === 0) continue;
+      const maxQty = authoritative && Number.isFinite(Number(product.stock))
+        ? Math.max(0, Math.floor(Number(product.stock)))
+        : 99;
+      const qty = Math.min(item.qty, maxQty || item.qty);
+      if (qty > 0) result.push({ id: product.id || item.id, qty });
+    }
+
+    return result;
   }
 
   function reconcile() {
@@ -64,7 +77,12 @@
       paint(0);
       return 0;
     }
-    const valid = validCart();
+
+    const original = rawCart();
+    const valid = normalizedCart();
+    const changed = JSON.stringify(original) !== JSON.stringify(valid);
+    if (changed) persist(valid);
+
     const count = valid.reduce((sum, item) => sum + item.qty, 0);
     paint(count);
     return count;
@@ -85,7 +103,7 @@
   function installGlobalOverrides() {
     try {
       globalThis.cartCount = () => catalogReady()
-        ? validCart().reduce((sum, item) => sum + item.qty, 0)
+        ? normalizedCart().reduce((sum, item) => sum + item.qty, 0)
         : 0;
       globalThis.updateCartCount = reconcile;
     } catch (_) {}
