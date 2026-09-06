@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finalizar compra — MDC Ferretería Linares</title>
+<link rel="icon" type="image/png" href="assets/logo-claro.png">
+<link rel="stylesheet" href="styles.css?v=2">
+</head>
+<body class="page-inner">
+
+<nav class="nav">
+  <a class="nav-logo" href="index.html">
+    <img src="assets/logo-claro.png" alt="MDC Ferretería">
+    <span class="nav-brand">Ferretería <b>MDC</b></span>
+  </a>
+  <div class="nav-links">
+    <a href="catalogo.html">Catálogo</a>
+    <a href="index.html#contacto">Contacto</a>
+  </div>
+  <div class="nav-right">
+    <a class="cart-btn" href="carrito.html" aria-label="Carrito">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+      <span class="cart-count" data-cart-count>0</span>
+    </a>
+  </div>
+</nav>
+
+<main class="cart-page">
+  <div class="catalog-head">
+    <p class="kicker">Último paso</p>
+    <h1>Finalizar compra</h1>
+    <p class="catalog-sub">Completa tus datos y te confirmamos el pedido por WhatsApp o teléfono.</p>
+  </div>
+  <div id="checkout-root"></div>
+</main>
+
+<footer class="footer">
+  <img src="assets/logo-claro.png" alt="MDC" class="footer-logo">
+  <p>© 2026 MDC Ferretería · Linares, Chile</p>
+</footer>
+
+<script src="app.js?v=2"></script>
+<script>
+  const root = document.getElementById("checkout-root");
+  const API_CHECKOUT = "https://mdc-app-dun.vercel.app/api/public/checkout";
+
+  function renderCheckout() {
+    const cart = getCart();
+    const items = cart.map(i => ({ ...i, p: LiveCatalog.byId(i.id) })).filter(i => i.p);
+
+    if (!items.length) {
+      root.innerHTML = `
+        <div class="cart-empty">
+          <p>No hay productos en el carrito.</p>
+          <a class="btn btn-solid" href="catalogo.html">Ver catálogo</a>
+        </div>`;
+      return;
+    }
+
+    const total = items.reduce((s, i) => s + i.p.precio * i.qty, 0);
+    const resumen = items.map(i => `
+      <div class="co-item">
+        <span>${i.qty}× ${i.p.nombre}</span>
+        <b>${CLP(i.p.precio * i.qty)}</b>
+      </div>`).join("");
+
+    root.innerHTML = `
+      <div class="cart-grid">
+        <form class="co-form" id="checkout-form">
+          <h2 class="co-title">Tus datos</h2>
+          <div class="co-field">
+            <label for="co-name">Nombre completo *</label>
+            <input id="co-name" name="name" type="text" required minlength="2" placeholder="Ej: Juan Pérez" class="input-theme">
+          </div>
+          <div class="co-field">
+            <label for="co-phone">Teléfono (WhatsApp) *</label>
+            <input id="co-phone" name="phone" type="tel" required placeholder="+56 9 1234 5678" class="input-theme">
+          </div>
+          <div class="co-field">
+            <label for="co-email">Email <span class="opt">(opcional)</span></label>
+            <input id="co-email" name="email" type="email" placeholder="tu@correo.cl" class="input-theme">
+          </div>
+          <div class="co-field">
+            <label for="co-address">Dirección de despacho</label>
+            <input id="co-address" name="address" type="text" placeholder="Calle, número, comuna" class="input-theme">
+          </div>
+          <div class="co-field">
+            <label for="co-city">Ciudad</label>
+            <input id="co-city" name="city" type="text" value="Linares" class="input-theme">
+          </div>
+          <div class="co-field">
+            <label for="co-notes">Notas del pedido <span class="opt">(opcional)</span></label>
+            <textarea id="co-notes" name="notes" rows="3" placeholder="Ej: entregar después de las 6 PM" class="input-theme"></textarea>
+          </div>
+
+          <div class="co-error" id="co-error" hidden></div>
+
+          <button type="submit" class="btn btn-solid co-submit" id="co-submit">Confirmar pedido</button>
+          <p class="cs-note">Te contactaremos para coordinar pago y despacho. Sin pagos en línea por ahora.</p>
+        </form>
+
+        <aside class="cart-summary">
+          <p class="c-label">Tu pedido</p>
+          ${resumen}
+          <div class="cs-row cs-total"><span>Total</span><b>${CLP(total)}</b></div>
+          <a class="pdp-wa" style="margin-top:1rem;display:block;text-align:center" href="carrito.html">← Editar carrito</a>
+        </aside>
+      </div>`;
+
+    document.getElementById("checkout-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const errEl = document.getElementById("co-error");
+      const btn = document.getElementById("co-submit");
+      errEl.hidden = true;
+      btn.disabled = true;
+      btn.textContent = "Enviando...";
+
+      const fd = new FormData(e.target);
+      const payload = {
+        name: fd.get("name"),
+        phone: fd.get("phone"),
+        email: fd.get("email") || null,
+        address: fd.get("address") || null,
+        city: fd.get("city") || "Linares",
+        notes: fd.get("notes") || null,
+        items: items.map(i => ({ id: i.p.id, qty: i.qty, name: i.p.nombre })),
+      };
+
+      try {
+        const res = await fetch(API_CHECKOUT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) {
+          throw new Error(data.error || "Error al enviar el pedido");
+        }
+        // éxito → limpiar carrito y mostrar confirmación
+        clearCart();
+        const waMsg = `Hola MDC, acabo de hacer el pedido #${data.orderNumber} por ${CLP(data.total)}. Mi nombre: ${payload.name}`;
+        root.innerHTML = `
+          <div class="co-success">
+            <div class="co-success-icon">✓</div>
+            <h2>¡Pedido recibido!</h2>
+            <p class="co-num">Pedido <b>#${data.orderNumber}</b> · Total <b>${CLP(data.total)}</b></p>
+            <p class="text-muted">Guardamos tus datos para futuras compras. Te contactaremos a la brevedad para coordinar pago y despacho.</p>
+            <div class="co-success-actions">
+              <a class="btn btn-solid" href="https://wa.me/56920688075?text=${encodeURIComponent(waMsg)}" target="_blank" rel="noopener">Acelerar por WhatsApp</a>
+              <a class="btn btn-ghost" href="catalogo.html">Seguir comprando</a>
+            </div>
+          </div>`;
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.hidden = false;
+        btn.disabled = false;
+        btn.textContent = "Confirmar pedido";
+      }
+    });
+  }
+
+  async function init() {
+    if (!LiveCatalog.loaded) await LiveCatalog.load();
+    renderCheckout();
+  }
+
+  init();
+  updateCartCount();
+</script>
+
+</body>
+</html>

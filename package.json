@@ -1,0 +1,7 @@
+{
+  "name": "mdc-tienda",
+  "private": true,
+  "scripts": {
+    "dev": "npx serve -l 3003 ."
+  }
+}

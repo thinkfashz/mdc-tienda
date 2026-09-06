@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Producto — MDC Ferretería Linares</title>
+<link rel="icon" type="image/png" href="assets/logo-claro.png">
+<link rel="stylesheet" href="styles.css?v=2">
+</head>
+<body class="page-inner">
+
+<nav class="nav">
+  <a class="nav-logo" href="index.html">
+    <img src="assets/logo-claro.png" alt="MDC Ferretería">
+    <span class="nav-brand">Ferretería <b>MDC</b></span>
+  </a>
+  <div class="nav-links">
+    <a href="index.html">Inicio</a>
+    <a href="catalogo.html">Catálogo</a>
+    <a href="index.html#contacto">Contacto</a>
+  </div>
+  <div class="nav-right">
+    <a class="cart-btn" href="carrito.html" aria-label="Carrito">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+      <span class="cart-count" data-cart-count>0</span>
+    </a>
+    <a class="nav-cta" href="https://wa.me/56920688075?text=Hola%20MDC%2C%20quiero%20cotizar" target="_blank" rel="noopener">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm5.3 14.2c-.2.6-1.3 1.2-1.8 1.2-.5.1-1 .2-3.4-.7-2.9-1.1-4.7-4-4.9-4.2-.1-.2-1.1-1.5-1.1-2.9s.7-2 1-2.3c.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.9 2.1c.1.2.1.4 0 .6l-.4.6-.5.5c-.2.2-.3.4-.1.7.2.3.9 1.5 2 2.4 1.4 1.2 2.5 1.6 2.8 1.7.3.1.5.1.7-.1l1-1.2c.2-.3.4-.2.7-.1l2 1c.3.1.5.2.6.4 0 .1 0 .7-.3 1.2Z"/></svg>
+      Cotizar
+    </a>
+  </div>
+</nav>
+
+<main class="pdp" id="pdp">
+  <div class="pdp-loading">
+    <div class="animate-spin w-8 h-8 border-4 border-[#F97316] border-t-transparent rounded-full"></div>
+    <p>Cargando producto...</p>
+  </div>
+</main>
+
+<section class="section related-section">
+  <div class="section-head">
+    <p class="kicker">También te puede interesar</p>
+  </div>
+  <div class="grid-products" id="related-grid"></div>
+</section>
+
+<footer class="footer">
+  <img src="assets/logo-claro.png" alt="MDC" class="footer-logo">
+  <p>© 2026 MDC Ferretería · Linares, Chile</p>
+</footer>
+
+<a class="wa-fab" href="https://wa.me/56920688075?text=Hola%20MDC" target="_blank" rel="noopener" aria-label="WhatsApp">
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm5.3 14.2c-.2.6-1.3 1.2-1.8 1.2-.5.1-1 .2-3.4-.7-2.9-1.1-4.7-4-4.9-4.2-.1-.2-1.1-1.5-1.1-2.9s.7-2 1-2.3c.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.9 2.1c.1.2.1.4 0 .6l-.4.6-.5.5c-.2.2-.3.4-.1.7.2.3.9 1.5 2 2.4 1.4 1.2 2.5 1.6 2.8 1.7.3.1.5.1.7-.1l1-1.2c.2-.3.4-.2.7-.1l2 1c.3.1.5.2.6.4 0 .1 0 .7-.3 1.2Z"/></svg>
+</a>
+
+<script src="app.js?v=2"></script>
+<script>
+  const id = new URLSearchParams(location.search).get("id");
+  const pdp = document.getElementById("pdp");
+  const REFRESH_MS = 20000;
+  let current = null;
+  let qty = 1;
+
+  function renderPdp(p) {
+    current = p;
+    document.title = `${p.nombre} — MDC Ferretería`;
+    pdp.innerHTML = `
+      <div class="pdp-grid">
+        <div class="pdp-media">
+          <img src="${p.img}" alt="${p.nombre}" onerror="this.src='assets/p-herramientas.png'">
+        </div>
+        <div class="pdp-info">
+          <nav class="crumbs"><a href="index.html">Inicio</a> / <a href="catalogo.html">Catálogo</a> / <a href="catalogo.html?cat=${p.cat}">${p.catNombre}</a></nav>
+          <p class="prod-marca">${p.marca}</p>
+          <h1>${p.nombre}</h1>
+          ${stockBadge(p.stock, p.minStock)}
+          <div class="pdp-precio">
+            <b>${CLP(p.precio)}</b>
+          </div>
+          ${p.desc ? `<p class="pdp-desc">${p.desc}</p>` : ""}
+          ${p.sku ? `<p class="pdp-sku">SKU: <span class="font-mono">${p.sku}</span></p>` : ""}
+          <div class="pdp-actions">
+            ${p.stock > 0 ? `
+            <div class="qty">
+              <button id="q-minus" aria-label="Restar">−</button>
+              <span id="q-val">1</span>
+              <button id="q-plus" aria-label="Sumar">+</button>
+            </div>
+            <button class="btn btn-solid" id="add-btn">Agregar al carrito</button>` : `
+            <p class="pdp-nostock">Sin stock por ahora — consúltanos por WhatsApp para encargarlo.</p>`}
+          </div>
+          <a class="pdp-wa" href="https://wa.me/56920688075?text=${encodeURIComponent(`Hola MDC, quiero consultar por: ${p.nombre}`)}" target="_blank" rel="noopener">
+            Consultar por WhatsApp →
+          </a>
+          <ul class="pdp-perks">
+            <li>Retiro inmediato en tienda (sujeto a stock)</li>
+            <li>Despacho en Linares y alrededores</li>
+            <li>Precio especial por volumen</li>
+          </ul>
+        </div>
+      </div>`;
+
+    if (p.stock > 0) {
+      qty = 1;
+      const qVal = document.getElementById("q-val");
+      document.getElementById("q-minus").onclick = () => { qty = Math.max(1, qty - 1); qVal.textContent = qty; };
+      document.getElementById("q-plus").onclick = () => { qty = Math.min(p.stock, qty + 1); qVal.textContent = qty; };
+      document.getElementById("add-btn").onclick = () => addToCart(p.id, qty);
+    }
+
+    // relacionados
+    const related = LiveCatalog.products.filter(x => x.cat === p.cat && x.id !== p.id).slice(0, 4);
+    const fallback = LiveCatalog.products.filter(x => x.id !== p.id).slice(0, 4);
+    renderProducts(document.getElementById("related-grid"), related.length ? related : fallback);
+    updateCartCount();
+  }
+
+  async function init() {
+    if (!LiveCatalog.loaded) await LiveCatalog.load();
+    let p = LiveCatalog.byId(id);
+    if (!p) {
+      pdp.innerHTML = `
+        <div class="pdp-missing">
+          <h1>Producto no encontrado</h1>
+          <a class="btn btn-solid" href="catalogo.html">Volver al catálogo</a>
+        </div>`;
+      return;
+    }
+    renderPdp(p);
+    // stock en vivo del detalle
+    setInterval(async () => {
+      const fresh = await LiveCatalog.refreshStock([id]);
+      if (fresh && fresh[id]) {
+        const np = LiveCatalog.byId(id);
+        if (np && (np.stock !== current.stock || np.precio !== current.precio)) {
+          renderPdp(np);
+        }
+      }
+    }, REFRESH_MS);
+  }
+
+  init();
+</script>
+
+</body>
+</html>
