@@ -163,17 +163,20 @@
 
       showUpdate(serverVersion);
     } catch (_) {
-      // Sin conexión no se interrumpe la app; se vuelve a comprobar luego.
+      /* Sin conexión no se interrumpe la app. */
     }
   }
 
   async function registerLatestWorker() {
     if (!('serviceWorker' in navigator) || !/^https?:$/.test(location.protocol)) return;
     try {
-      const registration = await navigator.serviceWorker.register('sw.js?v=7', {
-        scope: './',
-        updateViaCache: 'none'
-      });
+      let registration = await navigator.serviceWorker.getRegistration('./');
+      if (!registration) {
+        registration = await navigator.serviceWorker.register('sw.js?v=9', {
+          scope: './',
+          updateViaCache: 'none'
+        });
+      }
       await registration.update().catch(() => null);
     } catch (_) {}
   }
