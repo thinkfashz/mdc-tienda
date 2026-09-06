@@ -1,8 +1,9 @@
-/* MDC Ferretería — catálogo resiliente para producción */
+/* MDC Ferretería — catálogo resiliente y de arranque instantáneo */
 const API = "https://mdc-app-dun.vercel.app/api/public";
 const CATALOG_SNAPSHOT = "catalog.snapshot.json";
 const CATALOG_CACHE_KEY = "mdc-catalog-cache-v1";
-const CATALOG_TIMEOUT_MS = 7000;
+const CATALOG_TIMEOUT_MS = 2500;
+const SNAPSHOT_TIMEOUT_MS = 1200;
 
 const FALLBACK_IMG = "assets/p-herramientas.png";
 
@@ -45,11 +46,6 @@ function normalize(input) {
   const rawStock = p.stock;
   const rawMinStock = p.minStock;
 
-  /*
-   * El slug es la identidad pública estable del producto.
-   * backendId conserva el ID real de Prisma para sincronización/checkout.
-   * Así el carrito no depende de CUIDs que pueden cambiar entre importaciones.
-   */
   const stableId = String(p.slug || p.id || p.sku || "");
   const backendId = String(p.id || stableId);
 
@@ -105,11 +101,7 @@ async function fetchJson(url, timeoutMs = CATALOG_TIMEOUT_MS) {
     });
 
     let data = null;
-    try {
-      data = await res.json();
-    } catch (_) {
-      data = null;
-    }
+    try { data = await res.json(); } catch (_) { data = null; }
 
     if (!res.ok) {
       const error = new Error((data && data.error) || `HTTP ${res.status}`);
@@ -138,19 +130,13 @@ function readCatalogCache() {
 
 function writeCatalogCache(products) {
   try {
-    localStorage.setItem(CATALOG_CACHE_KEY, JSON.stringify({
-      savedAt: Date.now(),
-      products,
-    }));
-  } catch (_) {
-    /* la tienda sigue operativa aunque localStorage esté bloqueado */
-  }
+    localStorage.setItem(CATALOG_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), products }));
+  } catch (_) {}
 }
 
 function updateCatalogModeUI(source) {
   const live = source === "network";
   document.documentElement.dataset.catalogSource = source || "unavailable";
-
   document.querySelectorAll(".live-dot").forEach(dot => {
     dot.title = live
       ? "Inventario conectado en vivo"
@@ -193,7 +179,30 @@ const LiveCatalog = {
     this.loaded = true;
     updateCatalogModeUI(source);
     this._notify();
+    try {
+      document.dispatchEvent(new CustomEvent("mdc:catalog-ready", {
+        detail: { source, count: normalized.length }
+      }));
+    } catch (_) {}
     return normalized;
+  },
+
+  async _fetchNetworkProducts() {
+    const data = await fetchJson(`${API}/catalog?pageSize=100`, CATALOG_TIMEOUT_MS);
+    if (!data || !Array.isArray(data.products)) throw new Error("Respuesta de catálogo inválida");
+    return data.products;
+  },
+
+  async _refreshNetworkSilently() {
+    try {
+      const products = await this._fetchNetworkProducts();
+      writeCatalogCache(products);
+      this.error = null;
+      return this._setProducts(products, "network");
+    } catch (err) {
+      this.error = err;
+      return null;
+    }
   },
 
   async load({ force = false } = {}) {
@@ -203,63 +212,62 @@ const LiveCatalog = {
     this.loading = (async () => {
       this.error = null;
 
+      /*
+       * Arranque instantáneo: primero el snapshot del mismo deploy.
+       * En la PWA normalmente viene desde Cache Storage en pocos ms.
+       * La API real se consulta después, sin bloquear el primer render.
+       */
       try {
-        const data = await fetchJson(`${API}/catalog?pageSize=100`);
-        if (!data || !Array.isArray(data.products)) {
-          throw new Error("Respuesta de catálogo inválida");
-        }
-
-        writeCatalogCache(data.products);
-        return this._setProducts(data.products, "network");
-      } catch (err) {
-        this.error = err;
-        console.warn("Catálogo en vivo no disponible. Activando recuperación:", err);
-      }
-
-      const cached = readCatalogCache();
-      if (cached && cached.products.length) {
-        return this._setProducts(cached.products, "cache");
-      }
-
-      try {
-        const snapshot = await fetchJson(`${CATALOG_SNAPSHOT}?v=1`, 4000);
+        const snapshot = await fetchJson(`${CATALOG_SNAPSHOT}?v=3`, SNAPSHOT_TIMEOUT_MS);
         if (!snapshot || !Array.isArray(snapshot.products) || !snapshot.products.length) {
           throw new Error("Snapshot de catálogo inválido");
         }
-        return this._setProducts(snapshot.products, "snapshot");
+        writeCatalogCache(snapshot.products);
+        const initial = this._setProducts(snapshot.products, "snapshot");
+        this._refreshNetworkSilently();
+        return initial;
       } catch (snapshotError) {
-        console.error("No se pudo cargar el snapshot del catálogo:", snapshotError);
         this.error = snapshotError;
+      }
+
+      /* Fallback inmediato si el snapshot aún no está disponible. */
+      const cached = readCatalogCache();
+      if (cached && cached.products.length) {
+        const initial = this._setProducts(cached.products, "cache");
+        this._refreshNetworkSilently();
+        return initial;
+      }
+
+      /* Último intento: red, con timeout corto para no congelar la UI. */
+      try {
+        const products = await this._fetchNetworkProducts();
+        writeCatalogCache(products);
+        return this._setProducts(products, "network");
+      } catch (networkError) {
+        this.error = networkError;
         return this._setProducts([], "unavailable");
       }
     })();
 
-    try {
-      return await this.loading;
-    } finally {
-      this.loading = null;
-    }
+    try { return await this.loading; }
+    finally { this.loading = null; }
   },
 
   onChange(fn) {
     if (typeof fn === "function" && !this.listeners.includes(fn)) this.listeners.push(fn);
-    return () => {
-      this.listeners = this.listeners.filter(listener => listener !== fn);
-    };
+    return () => { this.listeners = this.listeners.filter(listener => listener !== fn); };
   },
 
   async refreshStock(ids) {
     if (!this.isLive || !Array.isArray(ids) || !ids.length) return null;
 
     try {
-      const requestedProducts = ids
-        .map(id => this.byId(id))
-        .filter(Boolean);
+      const requestedProducts = ids.map(id => this.byId(id)).filter(Boolean);
       const backendIds = [...new Set(requestedProducts.map(p => p.backendId || p.id).filter(Boolean))];
       if (!backendIds.length) return null;
 
       const qs = `?ids=${encodeURIComponent(backendIds.join(","))}`;
-      const data = await fetchJson(`${API}/stock${qs}`, 5000);
+      const data = await fetchJson(`${API}/stock${qs}`, 3500);
       if (!data || !data.stock) return null;
 
       let changed = false;
@@ -269,7 +277,6 @@ const LiveCatalog = {
 
         const nextStock = s.stock == null ? p.stock : Math.max(0, Math.floor(finiteNumber(s.stock, 0)));
         const nextPrice = s.price == null ? p.precio : Math.max(0, Math.round(finiteNumber(s.price, p.precio)));
-
         if (nextStock !== p.stock || nextPrice !== p.precio) {
           p.stock = nextStock;
           p.precio = nextPrice;
@@ -280,8 +287,7 @@ const LiveCatalog = {
       this.lastSyncAt = new Date().toISOString();
       if (changed) this._notify();
       return data.stock;
-    } catch (err) {
-      console.warn("No se pudo refrescar stock; se conserva el último estado conocido.", err);
+    } catch (_) {
       return null;
     }
   },
@@ -306,12 +312,9 @@ function getCart() {
 }
 
 function saveCart(cart) {
-  try {
-    localStorage.setItem("mdc-cart", JSON.stringify(cart));
-  } catch (_) {
-    /* checkout por WhatsApp permanece disponible */
-  }
+  try { localStorage.setItem("mdc-cart", JSON.stringify(cart)); } catch (_) {}
   updateCartCount();
+  try { document.dispatchEvent(new CustomEvent("mdc:cart-changed")); } catch (_) {}
 }
 
 function cartCount() {
@@ -319,23 +322,20 @@ function cartCount() {
 }
 
 function updateCartCount() {
+  const n = cartCount();
   document.querySelectorAll("[data-cart-count]").forEach(el => {
-    const n = cartCount();
-    el.textContent = n;
-    el.classList.toggle("is-visible", n > 0);
+    const visible = n > 0;
+    el.textContent = visible ? String(n) : "";
+    el.hidden = !visible;
+    el.classList.toggle("is-visible", visible);
+    el.setAttribute("aria-hidden", visible ? "false" : "true");
   });
 }
 
 function addToCart(id, qty = 1) {
   const product = LiveCatalog.byId(id);
-  if (!product) {
-    toast("Producto no disponible");
-    return false;
-  }
-  if (product.stock === 0) {
-    toast("Producto sin stock");
-    return false;
-  }
+  if (!product) { toast("Producto no disponible"); return false; }
+  if (product.stock === 0) { toast("Producto sin stock"); return false; }
 
   const safeQty = Math.max(1, Math.floor(finiteNumber(qty, 1)));
   const cart = getCart();
@@ -373,13 +373,10 @@ function setQty(id, qty) {
       item.qty = Math.min(maxQty, safeQty);
     }
   }
-
   saveCart(cart);
 }
 
-function clearCart() {
-  saveCart([]);
-}
+function clearCart() { saveCart([]); }
 
 /* ---------- render ---------- */
 function stockBadge(stock, minStock) {
@@ -389,15 +386,16 @@ function stockBadge(stock, minStock) {
   return `<span class="stock-badge stock-ok">Stock: ${stock}</span>`;
 }
 
-function productCard(p) {
+function productCard(p, index = 0) {
   const a = document.createElement("a");
   const canOrder = p.stock == null || p.stock > 0;
+  const aboveFold = index < 6;
   a.className = "prod reveal";
   a.href = `producto.html?id=${encodeURIComponent(p.id)}`;
   a.innerHTML = `
     ${p.precioAntes && p.precioAntes > p.precio ? `<span class="prod-badge">Oferta</span>` : ""}
     <div class="prod-img">
-      <img src="${escapeAttr(p.img)}" alt="${escapeAttr(p.nombre)}" loading="lazy" onerror="this.src='${FALLBACK_IMG}'">
+      <img src="${escapeAttr(p.img)}" alt="${escapeAttr(p.nombre)}" loading="${aboveFold ? "eager" : "lazy"}" decoding="async" fetchpriority="${aboveFold ? "high" : "auto"}" onerror="this.src='${FALLBACK_IMG}'">
     </div>
     <div class="prod-body">
       <p class="prod-marca">${escapeHTML(p.marca)}</p>
@@ -416,14 +414,20 @@ function productCard(p) {
 
 function renderProducts(container, list) {
   if (!container) return;
+  container.classList.add("is-rendering-products");
   container.innerHTML = "";
 
   if (!Array.isArray(list) || !list.length) {
     container.innerHTML = `<p class="empty-inline">No hay productos disponibles por ahora.</p>`;
+    container.classList.remove("is-rendering-products");
     return;
   }
 
-  list.forEach(p => container.appendChild(productCard(p)));
+  const frag = document.createDocumentFragment();
+  list.forEach((p, index) => frag.appendChild(productCard(p, index)));
+  container.appendChild(frag);
+
+  requestAnimationFrame(() => container.classList.remove("is-rendering-products"));
 
   if (!container.dataset.catalogEventsBound) {
     container.addEventListener("click", event => {
@@ -469,7 +473,7 @@ updateCartCount();
   if (!document.querySelector('link[data-mdc-splash]')) {
     const splashCss = document.createElement('link');
     splashCss.rel = 'stylesheet';
-    splashCss.href = 'splash-loader.css?v=2';
+    splashCss.href = 'splash-loader.css?v=4';
     splashCss.dataset.mdcSplash = '1';
     document.head.appendChild(splashCss);
   }
@@ -481,9 +485,17 @@ updateCartCount();
     document.head.appendChild(manifest);
   }
 
+  if (!document.querySelector('script[data-mdc-cart-state]')) {
+    const guard = document.createElement('script');
+    guard.src = 'cart-state-guard.js?v=4';
+    guard.defer = true;
+    guard.dataset.mdcCartState = '1';
+    document.head.appendChild(guard);
+  }
+
   if (!document.querySelector('script[data-mdc-splash-loader]')) {
     const splash = document.createElement('script');
-    splash.src = 'splash-loader.js?v=2';
+    splash.src = 'splash-loader.js?v=4';
     splash.defer = true;
     splash.dataset.mdcSplashLoader = '1';
     document.head.appendChild(splash);
@@ -491,7 +503,7 @@ updateCartCount();
 
   if (!document.querySelector('script[data-mdc-mobile-shell]')) {
     const shell = document.createElement('script');
-    shell.src = 'mobile-shell.js?v=3';
+    shell.src = 'mobile-shell.js?v=4';
     shell.async = true;
     shell.dataset.mdcMobileShell = '1';
     document.head.appendChild(shell);
