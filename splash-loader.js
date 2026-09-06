@@ -1,20 +1,22 @@
-/* MDC Ferretería · Gaussian Splash no bloqueante */
+/* MDC Ferretería · Gaussian Splash con precarga real */
 (() => {
   const MEDIA = Object.freeze({
-    logo: 'https://res.cloudinary.com/disghf6xc/image/upload/f_auto,q_auto,w_480/v1788685244/mdc-premium-logo.png',
-    truck: 'https://res.cloudinary.com/disghf6xc/image/upload/f_auto,q_auto,w_300/v1788685315/mdc-truck.png'
+    logo: 'https://res.cloudinary.com/disghf6xc/image/upload/f_auto,q_auto,w_620/v1788685244/mdc-premium-logo.png',
+    truck: 'https://res.cloudinary.com/disghf6xc/image/upload/f_auto,q_auto,w_360/v1788685315/mdc-truck.png'
   });
+  const API_ORIGIN = 'https://mdc-app-dun.vercel.app';
 
   window.MDC_MEDIA = MEDIA;
 
-  const SESSION_KEY = 'mdc-premium-splash-v5';
+  const SESSION_KEY = 'mdc-premium-splash-v6';
   const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  const MIN_VISIBLE_MS = reduceMotion ? 80 : 260;
-  const SOFT_LIMIT_MS = reduceMotion ? 180 : 720;
-  const HARD_FAILSAFE_MS = reduceMotion ? 260 : 1050;
+  const MIN_VISIBLE_MS = reduceMotion ? 900 : 2850;
+  const TARGET_VISIBLE_MS = reduceMotion ? 1100 : 3000;
+  const HARD_FAILSAFE_MS = reduceMotion ? 1500 : 3800;
   let activeSplash = null;
   let startedAt = 0;
   let dismissed = false;
+  let catalogReady = false;
 
   function safeSessionGet(key) {
     try { return sessionStorage.getItem(key); } catch (_) { return null; }
@@ -24,14 +26,19 @@
     try { sessionStorage.setItem(key, value); } catch (_) {}
   }
 
-  function preconnect() {
-    if (document.querySelector('link[data-mdc-cloudinary-preconnect]')) return;
+  function preconnectOrigin(href, key) {
+    if (document.querySelector(`link[data-mdc-preconnect="${key}"]`)) return;
     const link = document.createElement('link');
     link.rel = 'preconnect';
-    link.href = 'https://res.cloudinary.com';
+    link.href = href;
     link.crossOrigin = 'anonymous';
-    link.dataset.mdcCloudinaryPreconnect = '1';
+    link.dataset.mdcPreconnect = key;
     document.head.appendChild(link);
+  }
+
+  function preconnect() {
+    preconnectOrigin('https://res.cloudinary.com', 'cloudinary');
+    preconnectOrigin(API_ORIGIN, 'backend');
   }
 
   function loadScriptOnce(src, dataName) {
@@ -53,17 +60,12 @@
   }
 
   function loadLayers() {
-    loadCssOnce('marketplace-experience.css?v=2', 'mdc-marketplace');
+    loadCssOnce('marketplace-experience.css?v=3', 'mdc-marketplace');
     loadCssOnce('social-contact.css?v=2', 'mdc-contact');
-    loadScriptOnce('marketplace-experience.js?v=2', 'mdc-marketplace-js');
+    loadScriptOnce('marketplace-experience.js?v=3', 'mdc-marketplace-js');
     loadScriptOnce('social-contact.js?v=2', 'mdc-contact-js');
-    loadScriptOnce('app-update.js?v=3', 'mdc-app-update');
-  }
-
-  function scheduleLayers() {
-    const run = () => loadLayers();
-    if ('requestIdleCallback' in window) requestIdleCallback(run, { timeout: 1400 });
-    else window.setTimeout(run, 850);
+    loadScriptOnce('app-update.js?v=4', 'mdc-app-update');
+    loadScriptOnce('app-integrity.js?v=2', 'mdc-app-integrity');
   }
 
   function ensureBrandStyle() {
@@ -73,7 +75,7 @@
     style.textContent = `
       .nav-logo img.mdc-brand-logo,.footer-logo.mdc-brand-logo,.mobile-install-banner img.mdc-brand-logo{object-fit:contain!important;object-position:center!important}
       .nav-logo img.mdc-brand-logo{border-radius:0!important;background:transparent!important}
-      .footer-logo.mdc-brand-logo{max-width:150px;height:auto}
+      .footer-logo.mdc-brand-logo{max-width:170px;height:auto}
     `;
     document.head.appendChild(style);
   }
@@ -99,6 +101,31 @@
     return img;
   }
 
+  function warmImage(src) {
+    try {
+      const img = new Image();
+      img.decoding = 'async';
+      img.src = src;
+    } catch (_) {}
+  }
+
+  function warmCriticalAssets() {
+    ['assets/p-taladro.png', 'assets/p-amoladora.png', 'assets/p-cemento.png', 'assets/p-cable.png'].forEach(warmImage);
+
+    try {
+      if (typeof LiveCatalog !== 'undefined' && typeof LiveCatalog.load === 'function') {
+        LiveCatalog.load().catch(() => null);
+      }
+    } catch (_) {}
+
+    fetch('catalog.snapshot.json?v=4', { cache: 'force-cache', headers: { Accept: 'application/json' } }).catch(() => null);
+  }
+
+  function setStatus(text) {
+    const el = activeSplash?.querySelector('[data-mdc-splash-status]');
+    if (el) el.textContent = text;
+  }
+
   function dismissSplash(immediate = false) {
     if (dismissed) return;
     dismissed = true;
@@ -115,14 +142,17 @@
     window.setTimeout(() => {
       node.remove();
       activeSplash = null;
-    }, 260);
+    }, 340);
   }
 
-  function dismissWhenReady() {
+  function maybeDismiss() {
     if (!activeSplash || dismissed) return;
     const elapsed = Date.now() - startedAt;
-    const wait = Math.max(0, MIN_VISIBLE_MS - elapsed);
-    window.setTimeout(() => dismissSplash(false), wait);
+    if (elapsed < MIN_VISIBLE_MS) {
+      window.setTimeout(maybeDismiss, MIN_VISIBLE_MS - elapsed);
+      return;
+    }
+    if (catalogReady || elapsed >= TARGET_VISIBLE_MS) dismissSplash(false);
   }
 
   function buildSplash() {
@@ -131,7 +161,7 @@
     splash.dataset.startedAt = String(Date.now());
     splash.setAttribute('role', 'status');
     splash.setAttribute('aria-live', 'polite');
-    splash.setAttribute('aria-label', 'Abriendo MDC Ferretería');
+    splash.setAttribute('aria-label', 'Preparando MDC Ferretería');
 
     const inner = document.createElement('div');
     inner.className = 'mdc-splash-inner';
@@ -150,9 +180,13 @@
 
     const copy = document.createElement('div');
     copy.className = 'mdc-splash-copy';
-    copy.innerHTML = '<strong>MDC Ferretería</strong><span>Preparando tu catálogo</span>';
+    copy.innerHTML = '<strong>MDC Ferretería</strong><span data-mdc-splash-status>Preparando catálogo, imágenes y tienda</span>';
 
-    inner.append(logo, stage, copy);
+    const hint = document.createElement('div');
+    hint.className = 'mdc-splash-hint';
+    hint.textContent = 'Linares · Región del Maule';
+
+    inner.append(logo, stage, copy, hint);
     splash.appendChild(inner);
     return splash;
   }
@@ -160,28 +194,36 @@
   function showSplash() {
     document.querySelectorAll('.mdc-splash').forEach(node => node.remove());
     document.body?.classList.remove('mdc-splash-lock');
-    if (safeSessionGet(SESSION_KEY) === '1') return;
+    if (safeSessionGet(SESSION_KEY) === '1') return false;
     safeSessionSet(SESSION_KEY, '1');
 
     dismissed = false;
+    catalogReady = false;
     try {
       activeSplash = buildSplash();
       startedAt = Date.now();
       document.body.appendChild(activeSplash);
     } catch (_) {
       activeSplash = null;
-      return;
+      return false;
     }
 
-    document.addEventListener('mdc:catalog-ready', dismissWhenReady, { once: true });
+    document.addEventListener('mdc:catalog-ready', () => {
+      catalogReady = true;
+      setStatus('Catálogo listo · terminando de preparar la tienda');
+      maybeDismiss();
+    }, { once: true });
 
     try {
-      if (typeof LiveCatalog !== 'undefined' && LiveCatalog.loaded) dismissWhenReady();
+      if (typeof LiveCatalog !== 'undefined' && LiveCatalog.loaded && LiveCatalog.products?.length) {
+        catalogReady = true;
+      }
     } catch (_) {}
 
-    window.setTimeout(() => dismissSplash(false), SOFT_LIMIT_MS);
+    window.setTimeout(maybeDismiss, TARGET_VISIBLE_MS);
     window.setTimeout(() => dismissSplash(true), HARD_FAILSAFE_MS);
     window.addEventListener('pagehide', () => dismissSplash(true), { once: true });
+    return true;
   }
 
   function recover() {
@@ -195,8 +237,18 @@
     preconnect();
     ensureBrandStyle();
     setPremiumBrandImages();
-    showSplash();
-    scheduleLayers();
+    const shown = showSplash();
+
+    /* Durante el splash se descarga lo importante; no se espera hasta después. */
+    loadLayers();
+    warmCriticalAssets();
+
+    if (!shown) {
+      const later = () => warmCriticalAssets();
+      if ('requestIdleCallback' in window) requestIdleCallback(later, { timeout: 600 });
+      else window.setTimeout(later, 250);
+    }
+
     window.addEventListener('load', setPremiumBrandImages, { once: true });
   }
 
@@ -204,7 +256,7 @@
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') recover();
   });
-  window.setTimeout(recover, HARD_FAILSAFE_MS + 80);
+  window.setTimeout(recover, HARD_FAILSAFE_MS + 120);
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
   else boot();
