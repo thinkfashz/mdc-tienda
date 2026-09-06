@@ -1,47 +1,64 @@
-/* MDC Ferretería · watchdog liviano del splash */
+/* MDC Ferretería · watchdog del splash */
 (() => {
-  const MAX_VISIBLE_MS = 1700;
+  const MAX_VISIBLE_MS = 3900;
   let observer = null;
 
   function ensureCartGuard() {
     if (document.querySelector('script[data-mdc-cart-guard]')) return;
     const script = document.createElement('script');
-    script.src = 'cart-state-guard.js?v=3';
+    script.src = 'cart-state-guard.js?v=4';
     script.defer = true;
     script.dataset.mdcCartGuard = '1';
     document.head.appendChild(script);
   }
 
-  function release() {
+  function releaseNode(splash) {
+    if (!splash?.isConnected) return;
+    splash.classList.add('is-exiting');
+    splash.style.pointerEvents = 'none';
+    splash.style.visibility = 'hidden';
+    splash.style.opacity = '0';
     document.body?.classList.remove('mdc-splash-lock');
+    window.setTimeout(() => splash.remove(), 120);
+  }
+
+  function guardNode(splash) {
+    if (!splash) return;
+    const startedAt = Number(splash.dataset.startedAt || Date.now());
+    const age = Math.max(0, Date.now() - startedAt);
+    const remaining = Math.max(0, MAX_VISIBLE_MS - age);
+    window.setTimeout(() => releaseNode(splash), remaining);
+  }
+
+  function releaseStale() {
     document.querySelectorAll('.mdc-splash').forEach(splash => {
-      splash.classList.add('is-exiting');
-      splash.style.pointerEvents = 'none';
-      splash.style.visibility = 'hidden';
-      splash.style.opacity = '0';
-      window.setTimeout(() => splash.remove(), 100);
+      const startedAt = Number(splash.dataset.startedAt || 0);
+      if (!startedAt || Date.now() - startedAt >= MAX_VISIBLE_MS) releaseNode(splash);
     });
   }
 
   function boot() {
     ensureCartGuard();
-    release();
+    releaseStale();
 
-    /* Solo se observa durante el arranque: nunca queda un observer o intervalo permanente. */
-    observer = new MutationObserver(() => {
-      if (document.querySelector('.mdc-splash')) {
-        window.setTimeout(release, MAX_VISIBLE_MS);
-      }
+    observer = new MutationObserver(mutations => {
+      mutations.forEach(mutation => {
+        mutation.addedNodes.forEach(node => {
+          if (!(node instanceof Element)) return;
+          if (node.matches('.mdc-splash')) guardNode(node);
+          node.querySelectorAll?.('.mdc-splash').forEach(guardNode);
+        });
+      });
     });
     observer.observe(document.documentElement, { childList: true, subtree: true });
 
     window.setTimeout(() => {
-      release();
+      releaseStale();
       observer?.disconnect();
       observer = null;
-    }, 3200);
+    }, MAX_VISIBLE_MS + 700);
 
-    window.addEventListener('pageshow', release);
+    window.addEventListener('pageshow', releaseStale);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
