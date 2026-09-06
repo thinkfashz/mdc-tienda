@@ -1,4 +1,4 @@
-const CACHE = "mdc-store-shell-v3";
+const CACHE = "mdc-store-shell-v4";
 const CORE = [
   "./",
   "./index.html",
@@ -7,9 +7,11 @@ const CORE = [
   "./checkout.html",
   "./styles.css",
   "./premium-mobile.css",
+  "./marketplace-experience.css",
   "./splash-loader.css",
   "./app.js",
   "./mobile-shell.js",
+  "./marketplace-experience.js",
   "./splash-loader.js",
   "./catalog.snapshot.json",
   "./manifest.webmanifest",
