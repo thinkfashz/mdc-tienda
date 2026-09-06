@@ -1,5 +1,5 @@
 /* MDC Ferretería · PWA rápida para app instalada */
-const CACHE = "mdc-store-shell-v9";
+const CACHE = "mdc-store-shell-v10";
 const CACHE_PREFIX = "mdc-store-shell-";
 
 const CORE = [
@@ -106,7 +106,6 @@ self.addEventListener("fetch", event => {
     return;
   }
 
-  /* PWA instalada: pinta desde cache al instante y actualiza silenciosamente. */
   if (req.mode === "navigate") {
     event.respondWith((async () => {
       const cached = await cacheMatch(req);
@@ -120,12 +119,8 @@ self.addEventListener("fetch", event => {
     return;
   }
 
-  if (path.endsWith("/catalog.snapshot.json")) {
-    event.respondWith(staleWhileRevalidate(req, event));
-    return;
-  }
-
-  if (/\.(?:js|css|webmanifest)$/i.test(path)) {
+  /* Snapshot y shell: cache inmediato + actualización silenciosa. */
+  if (path.endsWith("/catalog.snapshot.json") || /\.(?:js|css|webmanifest)$/i.test(path)) {
     event.respondWith(staleWhileRevalidate(req, event));
     return;
   }
