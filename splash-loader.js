@@ -1,23 +1,34 @@
-/* MDC Ferretería · Splash premium robusto */
+/* MDC Ferretería · Splash ultraligero y no bloqueante */
 (() => {
   const MEDIA = Object.freeze({
-    logo: 'https://res.cloudinary.com/disghf6xc/image/upload/v1788685244/mdc-premium-logo.png',
-    truck: 'https://res.cloudinary.com/disghf6xc/image/upload/v1788685315/mdc-truck.png',
-    bar: 'https://res.cloudinary.com/disghf6xc/image/upload/v1788685459/mdc-progress-bar.png',
-    loading: 'https://res.cloudinary.com/disghf6xc/image/upload/v1788685584/mdc-loading-text.png',
-    subtitle: 'https://res.cloudinary.com/disghf6xc/image/upload/v1788685611/mdc-subtitle.png',
-    wheel: 'https://res.cloudinary.com/disghf6xc/image/upload/v1788685625/mdc-wheel.png',
-    brands: 'https://res.cloudinary.com/disghf6xc/image/upload/v1788685635/mdc-badge-brands.png',
-    stock: 'https://res.cloudinary.com/disghf6xc/image/upload/v1788685647/mdc-badge-stock.png',
-    delivery: 'https://res.cloudinary.com/disghf6xc/image/upload/v1788685660/mdc-badge-delivery.png',
+    logo: 'https://res.cloudinary.com/disghf6xc/image/upload/f_auto,q_auto,w_520/v1788685244/mdc-premium-logo.png',
+    truck: 'https://res.cloudinary.com/disghf6xc/image/upload/f_auto,q_auto,w_360/v1788685315/mdc-truck.png'
   });
 
   window.MDC_MEDIA = MEDIA;
 
-  const SESSION_KEY = 'mdc-premium-splash-v3';
+  const SESSION_KEY = 'mdc-premium-splash-v4';
   const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  const SPLASH_MS = reduceMotion ? 520 : 2000;
-  const HARD_FAILSAFE_MS = 3400;
+  const SPLASH_MS = reduceMotion ? 280 : 920;
+  const HARD_FAILSAFE_MS = 1450;
+
+  function safeSessionGet(key) {
+    try { return sessionStorage.getItem(key); } catch (_) { return null; }
+  }
+
+  function safeSessionSet(key, value) {
+    try { sessionStorage.setItem(key, value); } catch (_) {}
+  }
+
+  function preconnect() {
+    if (document.querySelector('link[data-mdc-cloudinary-preconnect]')) return;
+    const link = document.createElement('link');
+    link.rel = 'preconnect';
+    link.href = 'https://res.cloudinary.com';
+    link.crossOrigin = 'anonymous';
+    link.dataset.mdcCloudinaryPreconnect = '1';
+    document.head.appendChild(link);
+  }
 
   function loadScriptOnce(src, dataName) {
     if (document.querySelector(`script[data-${dataName}]`)) return;
@@ -28,26 +39,30 @@
     document.head.appendChild(script);
   }
 
-  function loadLayers() {
-    if (!document.querySelector('link[data-mdc-marketplace]')) {
-      const css = document.createElement('link');
-      css.rel = 'stylesheet';
-      css.href = 'marketplace-experience.css?v=1';
-      css.dataset.mdcMarketplace = '1';
-      document.head.appendChild(css);
-    }
-    if (!document.querySelector('link[data-mdc-contact]')) {
-      const css = document.createElement('link');
-      css.rel = 'stylesheet';
-      css.href = 'social-contact.css?v=1';
-      css.dataset.mdcContact = '1';
-      document.head.appendChild(css);
-    }
+  function loadCssOnce(href, dataName) {
+    if (document.querySelector(`link[data-${dataName}]`)) return;
+    const css = document.createElement('link');
+    css.rel = 'stylesheet';
+    css.href = href;
+    css.setAttribute(`data-${dataName}`, '1');
+    document.head.appendChild(css);
+  }
 
-    loadScriptOnce('marketplace-experience.js?v=1', 'mdc-marketplace');
-    loadScriptOnce('social-contact.js?v=1', 'mdc-contact');
-    loadScriptOnce('app-integrity.js?v=2', 'mdc-integrity');
-    loadScriptOnce('app-update.js?v=2', 'mdc-app-update');
+  function loadLayers() {
+    loadCssOnce('marketplace-experience.css?v=2', 'mdc-marketplace');
+    loadCssOnce('social-contact.css?v=2', 'mdc-contact');
+    loadScriptOnce('marketplace-experience.js?v=2', 'mdc-marketplace-js');
+    loadScriptOnce('social-contact.js?v=2', 'mdc-contact-js');
+    loadScriptOnce('app-update.js?v=3', 'mdc-app-update');
+  }
+
+  function scheduleLayers() {
+    const run = () => loadLayers();
+    if ('requestIdleCallback' in window) {
+      requestIdleCallback(run, { timeout: 1200 });
+    } else {
+      window.setTimeout(run, 700);
+    }
   }
 
   function ensureBrandStyle() {
@@ -55,16 +70,8 @@
     const style = document.createElement('style');
     style.id = 'mdc-premium-brand-style';
     style.textContent = `
-      .nav-logo img.mdc-brand-logo,
-      .footer-logo.mdc-brand-logo,
-      .mobile-install-banner img.mdc-brand-logo{
-        object-fit:contain !important;
-        object-position:center !important;
-      }
-      .nav-logo img.mdc-brand-logo{
-        border-radius:0 !important;
-        background:transparent !important;
-      }
+      .nav-logo img.mdc-brand-logo,.footer-logo.mdc-brand-logo,.mobile-install-banner img.mdc-brand-logo{object-fit:contain!important;object-position:center!important}
+      .nav-logo img.mdc-brand-logo{border-radius:0!important;background:transparent!important}
       .footer-logo.mdc-brand-logo{max-width:150px;height:auto}
     `;
     document.head.appendChild(style);
@@ -78,73 +85,30 @@
     });
   }
 
-  function safeSessionGet(key) {
-    try { return sessionStorage.getItem(key); } catch (_) { return null; }
-  }
-
-  function safeSessionSet(key, value) {
-    try { sessionStorage.setItem(key, value); } catch (_) {}
-  }
-
-  function image(src, className, alt = '') {
+  function image(src, className, alt = '', priority = 'auto') {
     const img = document.createElement('img');
     img.src = src;
     img.className = className;
     img.alt = alt;
     img.decoding = 'async';
+    img.loading = 'eager';
+    try { img.fetchPriority = priority; } catch (_) {}
     img.draggable = false;
     img.addEventListener('error', () => { img.hidden = true; }, { once: true });
     return img;
   }
 
   function dismissSplash(splash, immediate = false) {
-    if (!splash) splash = document.querySelector('.mdc-splash');
     document.body?.classList.remove('mdc-splash-lock');
-    if (!splash) return;
-
+    const node = splash || document.querySelector('.mdc-splash');
+    if (!node) return;
+    node.classList.add('is-exiting');
+    node.style.pointerEvents = 'none';
     if (immediate) {
-      splash.remove();
+      node.remove();
       return;
     }
-
-    splash.classList.add('is-exiting');
-    window.setTimeout(() => splash.remove(), 360);
-  }
-
-  function animateTruck(splash) {
-    if (reduceMotion) return;
-    try {
-      const stage = splash.querySelector('.mdc-splash-stage');
-      const truck = splash.querySelector('.mdc-splash-truck');
-      if (!stage || !truck || typeof truck.animate !== 'function') return;
-
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        try {
-          const travel = Math.max(0, stage.clientWidth - truck.clientWidth - 4);
-          truck.animate([
-            { transform: 'translate3d(-8px,0,0)' },
-            { transform: `translate3d(${travel}px,0,0)` }
-          ], {
-            duration: 1720,
-            delay: 130,
-            easing: 'cubic-bezier(.16,.72,.2,1)',
-            fill: 'forwards'
-          });
-        } catch (_) {}
-      }));
-    } catch (_) {}
-  }
-
-  function buildTruck() {
-    const truck = document.createElement('div');
-    truck.className = 'mdc-splash-truck';
-    truck.setAttribute('aria-hidden', 'true');
-    truck.append(
-      image(MEDIA.truck, 'mdc-splash-truck-body'),
-      image(MEDIA.wheel, 'mdc-splash-wheel rear'),
-      image(MEDIA.wheel, 'mdc-splash-wheel front')
-    );
-    return truck;
+    window.setTimeout(() => node.remove(), 220);
   }
 
   function buildSplash() {
@@ -153,101 +117,84 @@
     splash.dataset.startedAt = String(Date.now());
     splash.setAttribute('role', 'status');
     splash.setAttribute('aria-live', 'polite');
-    splash.setAttribute('aria-label', 'Cargando MDC Ferretería');
+    splash.setAttribute('aria-label', 'Abriendo MDC Ferretería');
 
     const inner = document.createElement('div');
     inner.className = 'mdc-splash-inner';
-    const logo = image(MEDIA.logo, 'mdc-splash-logo', 'MDC Ferretería');
+
+    const logo = image(MEDIA.logo, 'mdc-splash-logo', 'MDC Ferretería', 'high');
 
     const stage = document.createElement('div');
     stage.className = 'mdc-splash-stage';
     stage.setAttribute('aria-hidden', 'true');
+    stage.innerHTML = '<div class="mdc-splash-track"><div class="mdc-splash-bar-mask"></div></div>';
 
-    const track = document.createElement('div');
-    track.className = 'mdc-splash-track';
-    const mask = document.createElement('div');
-    mask.className = 'mdc-splash-bar-mask';
-    mask.append(image(MEDIA.bar, 'mdc-splash-bar-art'));
-    track.append(mask);
-    stage.append(track, buildTruck());
+    const truck = document.createElement('div');
+    truck.className = 'mdc-splash-truck';
+    truck.appendChild(image(MEDIA.truck, 'mdc-splash-truck-body', '', 'high'));
+    truck.innerHTML += '<span class="mdc-wheel rear"></span><span class="mdc-wheel front"></span>';
+    stage.appendChild(truck);
 
-    const loading = image(MEDIA.loading, 'mdc-splash-loading-text', 'Cargando catálogo…');
-    const subtitle = image(MEDIA.subtitle, 'mdc-splash-subtitle', 'Las mejores herramientas más cerca de ti');
+    const copy = document.createElement('div');
+    copy.className = 'mdc-splash-copy';
+    copy.innerHTML = '<strong>Abriendo MDC</strong><span>Herramientas y materiales en Linares</span>';
+
     const badges = document.createElement('div');
     badges.className = 'mdc-splash-badges';
-    badges.setAttribute('aria-hidden', 'true');
-    badges.append(
-      image(MEDIA.brands, 'mdc-splash-badge'),
-      image(MEDIA.stock, 'mdc-splash-badge'),
-      image(MEDIA.delivery, 'mdc-splash-badge')
-    );
+    badges.innerHTML = '<span>Marcas confiables</span><span>Stock actualizado</span><span>Despacho coordinado</span>';
 
-    inner.append(logo, stage, loading, subtitle, badges);
-    splash.append(inner);
+    inner.append(logo, stage, copy, badges);
+    splash.appendChild(inner);
     return splash;
   }
 
   function showSplash() {
-    const stale = document.querySelector('.mdc-splash');
-    if (stale) dismissSplash(stale, true);
-    if (safeSessionGet(SESSION_KEY) === '1') {
-      document.body?.classList.remove('mdc-splash-lock');
-      return;
-    }
+    document.querySelectorAll('.mdc-splash').forEach(node => node.remove());
+    document.body?.classList.remove('mdc-splash-lock');
+
+    if (safeSessionGet(SESSION_KEY) === '1') return;
+    safeSessionSet(SESSION_KEY, '1');
 
     let splash;
     try {
-      safeSessionSet(SESSION_KEY, '1');
       splash = buildSplash();
-      document.body.classList.add('mdc-splash-lock');
       document.body.appendChild(splash);
     } catch (_) {
-      document.body?.classList.remove('mdc-splash-lock');
       return;
     }
 
-    const exitTimer = window.setTimeout(() => dismissSplash(splash, false), SPLASH_MS);
+    const exitTimer = window.setTimeout(() => dismissSplash(splash), SPLASH_MS);
     const hardTimer = window.setTimeout(() => dismissSplash(splash, true), HARD_FAILSAFE_MS);
 
-    animateTruck(splash);
-
-    const cleanupOnHide = () => {
+    const cleanup = () => {
       clearTimeout(exitTimer);
       clearTimeout(hardTimer);
       dismissSplash(splash, true);
     };
-    window.addEventListener('pagehide', cleanupOnHide, { once: true });
+    window.addEventListener('pagehide', cleanup, { once: true });
   }
 
-  function recoverFromFrozenSplash() {
+  function recover() {
     const splash = document.querySelector('.mdc-splash');
-    if (!splash) {
-      document.body?.classList.remove('mdc-splash-lock');
-      return;
-    }
+    if (!splash) return;
     const startedAt = Number(splash.dataset.startedAt || 0);
     if (!startedAt || Date.now() - startedAt > HARD_FAILSAFE_MS) dismissSplash(splash, true);
   }
 
   function boot() {
-    // El contador nunca espera al resto de capas visuales.
-    loadScriptOnce('cart-state-guard.js?v=2', 'mdc-cart-state');
+    preconnect();
     ensureBrandStyle();
     setPremiumBrandImages();
     showSplash();
-
-    window.setTimeout(loadLayers, 80);
-
-    const observer = new MutationObserver(() => setPremiumBrandImages());
-    observer.observe(document.body, { childList: true, subtree: true });
-    window.setTimeout(() => observer.disconnect(), 7000);
+    scheduleLayers();
+    window.addEventListener('load', setPremiumBrandImages, { once: true });
   }
 
-  window.addEventListener('pageshow', recoverFromFrozenSplash);
+  window.addEventListener('pageshow', recover);
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') recoverFromFrozenSplash();
+    if (document.visibilityState === 'visible') recover();
   });
-  window.setTimeout(recoverFromFrozenSplash, HARD_FAILSAFE_MS + 250);
+  window.setTimeout(recover, HARD_FAILSAFE_MS + 100);
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
   else boot();
