@@ -466,11 +466,27 @@ updateCartCount();
     document.head.appendChild(css);
   }
 
+  if (!document.querySelector('link[data-mdc-splash]')) {
+    const splashCss = document.createElement('link');
+    splashCss.rel = 'stylesheet';
+    splashCss.href = 'splash-loader.css?v=2';
+    splashCss.dataset.mdcSplash = '1';
+    document.head.appendChild(splashCss);
+  }
+
   if (!document.querySelector('link[rel="manifest"]')) {
     const manifest = document.createElement('link');
     manifest.rel = 'manifest';
     manifest.href = 'manifest.webmanifest?v=2';
     document.head.appendChild(manifest);
+  }
+
+  if (!document.querySelector('script[data-mdc-splash-loader]')) {
+    const splash = document.createElement('script');
+    splash.src = 'splash-loader.js?v=2';
+    splash.defer = true;
+    splash.dataset.mdcSplashLoader = '1';
+    document.head.appendChild(splash);
   }
 
   if (!document.querySelector('script[data-mdc-mobile-shell]')) {
