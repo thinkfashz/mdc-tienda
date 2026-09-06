@@ -18,6 +18,34 @@
     { id:'sellante', name:'Sellante Acrílico 280ml', brand:'Aguila', category:{slug:'ferreteria',name:'Ferretería general'}, price:3490, stock:null, minStock:null, unit:'unidad', imageUrl:'assets/p-pintura.png', description:'Sellante acrílico pintable de 280ml para juntas y filtraciones. Interior y exterior.' }
   ];
 
+  function installGaussianTransitions() {
+    if (document.getElementById('mdc-gaussian-transitions')) return;
+    const style = document.createElement('style');
+    style.id = 'mdc-gaussian-transitions';
+    style.textContent = `
+      @view-transition { navigation: auto; }
+      ::view-transition-old(root) {
+        animation: mdcGaussianOut .14s ease both;
+      }
+      ::view-transition-new(root) {
+        animation: mdcGaussianIn .19s cubic-bezier(.22,.7,.2,1) both;
+      }
+      @keyframes mdcGaussianOut {
+        to { opacity:.18; filter:blur(7px); transform:scale(.996); }
+      }
+      @keyframes mdcGaussianIn {
+        from { opacity:.22; filter:blur(8px); transform:scale(1.004); }
+        to { opacity:1; filter:blur(0); transform:scale(1); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        ::view-transition-old(root), ::view-transition-new(root) { animation-duration:.01ms !important; }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  installGaussianTransitions();
+
   try {
     if (!LiveCatalog.loaded || !Array.isArray(LiveCatalog.products) || !LiveCatalog.products.length) {
       LiveCatalog._setProducts(PRODUCTS, 'bootstrap');
