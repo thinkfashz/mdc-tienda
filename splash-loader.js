@@ -132,7 +132,7 @@
     const truck = document.createElement('div');
     truck.className = 'mdc-splash-truck';
     truck.appendChild(image(MEDIA.truck, 'mdc-splash-truck-body', '', 'high'));
-    truck.innerHTML += '<span class="mdc-wheel rear"></span><span class="mdc-wheel front"></span>';
+    truck.insertAdjacentHTML('beforeend', '<span class="mdc-wheel rear"></span><span class="mdc-wheel front"></span>');
     stage.appendChild(truck);
 
     const copy = document.createElement('div');
@@ -183,6 +183,7 @@
 
   function boot() {
     preconnect();
+    loadScriptOnce('cart-state-guard.js?v=3', 'mdc-cart-state');
     ensureBrandStyle();
     setPremiumBrandImages();
     showSplash();
