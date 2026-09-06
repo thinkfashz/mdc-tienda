@@ -1,5 +1,5 @@
 /* MDC Ferretería · PWA robusta para app instalada */
-const CACHE = "mdc-store-shell-v6";
+const CACHE = "mdc-store-shell-v7";
 const CACHE_PREFIX = "mdc-store-shell-";
 
 const CORE = [
@@ -19,6 +19,8 @@ const CORE = [
   "./marketplace-experience.js",
   "./social-contact.js",
   "./splash-loader.js",
+  "./app-integrity.js",
+  "./app-update.js",
   "./catalog.snapshot.json",
   "./manifest.webmanifest",
   "./assets/logo-claro.png",
@@ -63,16 +65,25 @@ async function cachePutCanonical(request, response) {
   return response;
 }
 
+async function networkFirst(request) {
+  try {
+    const response = await fetch(request, { cache: "no-store" });
+    if (response.ok) await cachePutCanonical(request, response);
+    return response;
+  } catch (_) {
+    return (await cacheMatchIgnoringVersion(request)) || Response.error();
+  }
+}
+
 self.addEventListener("install", event => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE);
-    // Un recurso opcional nunca debe impedir instalar/actualizar toda la PWA.
     await Promise.all(CORE.map(async url => {
       try {
         const response = await fetch(url, { cache: "reload" });
         if (response.ok) await cache.put(canonicalUrl(url), response);
       } catch (_) {
-        // El resto del shell continúa instalándose.
+        // Un recurso opcional no debe cancelar la actualización completa.
       }
     }));
     await self.skipWaiting();
@@ -98,11 +109,17 @@ self.addEventListener("fetch", event => {
   const url = new URL(req.url);
   const path = url.pathname;
 
-  // Navegación: red primero, shell local como respaldo.
+  // La versión del deployment jamás se cachea: es la señal para mostrar el modal de actualización.
+  if (path === "/api/version") {
+    event.respondWith(fetch(req, { cache: "no-store" }));
+    return;
+  }
+
+  // Navegación: red primero para que una actualización aplicada cargue el HTML más reciente.
   if (req.mode === "navigate") {
     event.respondWith((async () => {
       try {
-        const fresh = await fetch(req);
+        const fresh = await fetch(req, { cache: "no-store" });
         await cachePutCanonical(req, fresh);
         return fresh;
       } catch (_) {
@@ -114,38 +131,29 @@ self.addEventListener("fetch", event => {
     return;
   }
 
-  // El snapshot es crítico para que la app instalada muestre productos sin API.
-  // Red primero para mantenerlo fresco; cache local si no hay conexión.
+  // Catálogo desplegado: siempre intenta la copia de ESTE deployment antes del cache local.
   if (path.endsWith("/catalog.snapshot.json")) {
-    event.respondWith((async () => {
-      try {
-        const fresh = await fetch(req, { cache: "no-store" });
-        await cachePutCanonical(req, fresh);
-        return fresh;
-      } catch (_) {
-        return (await cacheMatchIgnoringVersion(req)) || Response.error();
-      }
-    })());
+    event.respondWith(networkFirst(req));
     return;
   }
 
-  // JS/CSS/imágenes: sirve instantáneo desde cache ignorando ?v=...
-  // y actualiza en segundo plano cuando hay conexión.
+  // Código y estilos: red primero. Esto evita que la PWA se quede ejecutando JS viejo tras un deploy.
+  if (/\.(?:js|css|webmanifest)$/i.test(path)) {
+    event.respondWith(networkFirst(req));
+    return;
+  }
+
+  // Imágenes y demás assets: cache primero para una experiencia rápida y offline.
   event.respondWith((async () => {
     const cached = await cacheMatchIgnoringVersion(req);
-    const refresh = fetch(req)
-      .then(async response => {
-        if (response.ok) await cachePutCanonical(req, response);
-        return response;
-      })
-      .catch(() => null);
+    if (cached) return cached;
 
-    if (cached) {
-      event.waitUntil(refresh);
-      return cached;
+    try {
+      const fresh = await fetch(req);
+      if (fresh.ok) await cachePutCanonical(req, fresh);
+      return fresh;
+    } catch (_) {
+      return Response.error();
     }
-
-    const fresh = await refresh;
-    return fresh || Response.error();
   })());
 });
