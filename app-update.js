@@ -104,7 +104,7 @@
     if (!('serviceWorker' in navigator)) return null;
     let registration = await navigator.serviceWorker.getRegistration('./');
     if (!registration) {
-      registration = await navigator.serviceWorker.register('sw.js?v=13', {
+      registration = await navigator.serviceWorker.register('sw.js?v=14', {
         scope: './',
         updateViaCache: 'none'
       });
