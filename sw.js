@@ -1,5 +1,5 @@
 /* MDC Ferretería · PWA rápida para app instalada */
-const CACHE = "mdc-store-shell-v15";
+const CACHE = "mdc-store-shell-v16";
 const CACHE_PREFIX = "mdc-store-shell-";
 
 const CORE = [
@@ -140,7 +140,7 @@ self.addEventListener("fetch", event => {
   }
 
   if (path.endsWith("/catalog.snapshot.json") || /\.(?:js|css|webmanifest)$/i.test(path)) {
-    event.respondWith(networkFirst(req, event, 800));
+    event.respondWith(networkFirst(req, event, 700));
     return;
   }
 
