@@ -1,5 +1,5 @@
 /* MDC Ferretería · PWA rápida para app instalada */
-const CACHE = "mdc-store-shell-v18";
+const CACHE = "mdc-store-shell-v19";
 const CACHE_PREFIX = "mdc-store-shell-";
 
 const CORE = [
@@ -11,6 +11,7 @@ const CORE = [
   "./checkout.html",
   "./styles.css",
   "./premium-mobile.css",
+  "./mobile-readable.css",
   "./marketplace-experience.css",
   "./social-contact.css",
   "./splash-loader.css",
