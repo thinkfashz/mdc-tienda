@@ -1,22 +1,28 @@
-/* MDC Ferretería · Gaussian Splash con precarga real */
+/* MDC Ferretería · Gaussian Splash robusto y no bloqueante */
 (() => {
   const MEDIA = Object.freeze({
     logo: 'https://res.cloudinary.com/disghf6xc/image/upload/f_auto,q_auto,w_620/v1788685244/mdc-premium-logo.png',
     truck: 'https://res.cloudinary.com/disghf6xc/image/upload/f_auto,q_auto,w_360/v1788685315/mdc-truck.png'
   });
   const API_ORIGIN = 'https://mdc-app-dun.vercel.app';
+  const SESSION_KEY = 'mdc-premium-splash-v8';
+  const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const MIN_VISIBLE_MS = reduceMotion ? 100 : 520;
+  const TARGET_VISIBLE_MS = reduceMotion ? 180 : 920;
+  const HARD_FAILSAFE_MS = reduceMotion ? 350 : 1450;
 
   window.MDC_MEDIA = MEDIA;
 
-  const SESSION_KEY = 'mdc-premium-splash-v7';
-  const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  const MIN_VISIBLE_MS = reduceMotion ? 120 : 650;
-  const TARGET_VISIBLE_MS = reduceMotion ? 180 : 950;
-  const HARD_FAILSAFE_MS = reduceMotion ? 450 : 1500;
   let activeSplash = null;
   let startedAt = 0;
-  let dismissed = false;
   let catalogReady = false;
+  let dismissTimer = 0;
+  let hardTimer = 0;
+
+  function isHome() {
+    const path = location.pathname.replace(/\/+$/, '');
+    return path === '' || path === '/' || path.endsWith('/index.html');
+  }
 
   function safeSessionGet(key) {
     try { return sessionStorage.getItem(key); } catch (_) { return null; }
@@ -64,7 +70,7 @@
     loadCssOnce('social-contact.css?v=3', 'mdc-contact');
     loadScriptOnce('marketplace-experience.js?v=4', 'mdc-marketplace-js');
     loadScriptOnce('social-contact.js?v=3', 'mdc-contact-js');
-    loadScriptOnce('app-update.js?v=5', 'mdc-app-update');
+    loadScriptOnce('app-update.js?v=16', 'mdc-app-update');
     loadScriptOnce('app-integrity.js?v=3', 'mdc-app-integrity');
   }
 
@@ -111,13 +117,11 @@
 
   function warmCriticalAssets() {
     ['assets/p-taladro.png', 'assets/p-amoladora.png', 'assets/p-cemento.png', 'assets/p-cable.png'].forEach(warmImage);
-
     try {
       if (typeof LiveCatalog !== 'undefined' && typeof LiveCatalog.load === 'function') {
         LiveCatalog.load().catch(() => null);
       }
     } catch (_) {}
-
     fetch('catalog.snapshot.json?v=5', { cache: 'force-cache', headers: { Accept: 'application/json' } }).catch(() => null);
   }
 
@@ -126,35 +130,53 @@
     if (el) el.textContent = text;
   }
 
-  function dismissSplash(immediate = false) {
-    if (dismissed) return;
-    dismissed = true;
-    const node = activeSplash || document.querySelector('.mdc-splash');
+  function clearTimers() {
+    if (dismissTimer) window.clearTimeout(dismissTimer);
+    if (hardTimer) window.clearTimeout(hardTimer);
+    dismissTimer = 0;
+    hardTimer = 0;
+  }
+
+  function forceRemoveSplash() {
+    clearTimers();
     document.body?.classList.remove('mdc-splash-lock');
-    if (!node) return;
-    node.classList.add('is-exiting');
-    node.style.pointerEvents = 'none';
-    node.style.visibility = 'hidden';
-    node.style.opacity = '0';
-    if (immediate) {
+    document.querySelectorAll('.mdc-splash').forEach(node => {
+      node.style.setProperty('animation', 'none', 'important');
+      node.style.setProperty('pointer-events', 'none', 'important');
+      node.style.setProperty('opacity', '0', 'important');
+      node.style.setProperty('visibility', 'hidden', 'important');
       node.remove();
-      activeSplash = null;
+    });
+    activeSplash = null;
+  }
+
+  function dismissSplash() {
+    const node = activeSplash;
+    if (!node?.isConnected) {
+      forceRemoveSplash();
       return;
     }
-    window.setTimeout(() => {
-      node.remove();
-      activeSplash = null;
-    }, 180);
+
+    node.style.setProperty('animation', 'none', 'important');
+    node.style.setProperty('pointer-events', 'none', 'important');
+    node.style.setProperty('opacity', '0', 'important');
+    node.style.setProperty('visibility', 'hidden', 'important');
+    node.style.setProperty('-webkit-backdrop-filter', 'none', 'important');
+    node.style.setProperty('backdrop-filter', 'none', 'important');
+    node.classList.add('is-exiting');
+    document.body?.classList.remove('mdc-splash-lock');
+
+    dismissTimer = window.setTimeout(forceRemoveSplash, 190);
   }
 
   function maybeDismiss() {
-    if (!activeSplash || dismissed) return;
+    if (!activeSplash?.isConnected) return;
     const elapsed = Date.now() - startedAt;
     if (elapsed < MIN_VISIBLE_MS) {
-      window.setTimeout(maybeDismiss, MIN_VISIBLE_MS - elapsed);
+      dismissTimer = window.setTimeout(maybeDismiss, MIN_VISIBLE_MS - elapsed);
       return;
     }
-    if (catalogReady || elapsed >= TARGET_VISIBLE_MS) dismissSplash(false);
+    if (catalogReady || elapsed >= TARGET_VISIBLE_MS) dismissSplash();
   }
 
   function buildSplash() {
@@ -194,25 +216,17 @@
   }
 
   function showSplash() {
-    document.querySelectorAll('.mdc-splash').forEach(node => node.remove());
-    document.body?.classList.remove('mdc-splash-lock');
-    if (safeSessionGet(SESSION_KEY) === '1') return false;
+    forceRemoveSplash();
+    if (!isHome() || safeSessionGet(SESSION_KEY) === '1') return false;
     safeSessionSet(SESSION_KEY, '1');
 
-    dismissed = false;
     catalogReady = false;
-    try {
-      activeSplash = buildSplash();
-      startedAt = Date.now();
-      document.body.appendChild(activeSplash);
-    } catch (_) {
-      activeSplash = null;
-      return false;
-    }
+    activeSplash = buildSplash();
+    startedAt = Date.now();
+    document.body.appendChild(activeSplash);
 
-    /* El watchdog se arma inmediatamente: ninguna consulta de red puede retener el splash. */
-    window.setTimeout(() => dismissSplash(true), HARD_FAILSAFE_MS);
-    window.setTimeout(maybeDismiss, TARGET_VISIBLE_MS);
+    hardTimer = window.setTimeout(forceRemoveSplash, HARD_FAILSAFE_MS);
+    dismissTimer = window.setTimeout(maybeDismiss, TARGET_VISIBLE_MS);
 
     document.addEventListener('mdc:catalog-ready', () => {
       catalogReady = true;
@@ -227,7 +241,7 @@
       }
     } catch (_) {}
 
-    window.addEventListener('pagehide', () => dismissSplash(true), { once: true });
+    window.addEventListener('pagehide', forceRemoveSplash, { once: true });
     return true;
   }
 
@@ -235,24 +249,18 @@
     const splash = document.querySelector('.mdc-splash');
     if (!splash) return;
     const age = Date.now() - Number(splash.dataset.startedAt || 0);
-    if (!Number.isFinite(age) || age >= HARD_FAILSAFE_MS) dismissSplash(true);
+    if (!Number.isFinite(age) || age >= HARD_FAILSAFE_MS) forceRemoveSplash();
   }
 
   function boot() {
     preconnect();
     ensureBrandStyle();
     setPremiumBrandImages();
-    const shown = showSplash();
+    showSplash();
 
-    /* La precarga corre en paralelo; nunca condiciona la salida del loader. */
+    /* Precarga en paralelo: nunca condiciona la salida del splash. */
     loadLayers();
     warmCriticalAssets();
-
-    if (!shown) {
-      const later = () => warmCriticalAssets();
-      if ('requestIdleCallback' in window) requestIdleCallback(later, { timeout: 500 });
-      else window.setTimeout(later, 180);
-    }
 
     window.addEventListener('load', setPremiumBrandImages, { once: true });
   }
@@ -263,7 +271,7 @@
   });
   window.addEventListener('error', recover, true);
   window.addEventListener('unhandledrejection', recover);
-  window.setTimeout(recover, HARD_FAILSAFE_MS + 80);
+  window.setTimeout(recover, HARD_FAILSAFE_MS + 100);
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
   else boot();
