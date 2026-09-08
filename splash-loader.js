@@ -1,23 +1,25 @@
-/* MDC Ferretería · Gaussian Splash robusto y no bloqueante */
+/* MDC Ferretería · Gaussian Splash v18 · progreso único y desmontaje determinista */
 (() => {
   const MEDIA = Object.freeze({
     logo: 'https://res.cloudinary.com/disghf6xc/image/upload/f_auto,q_auto,w_620/v1788685244/mdc-premium-logo.png',
     truck: 'https://res.cloudinary.com/disghf6xc/image/upload/f_auto,q_auto,w_360/v1788685315/mdc-truck.png'
   });
   const API_ORIGIN = 'https://mdc-app-dun.vercel.app';
-  const SESSION_KEY = 'mdc-premium-splash-v8';
+  const SESSION_KEY = 'mdc-premium-splash-v9';
   const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  const MIN_VISIBLE_MS = reduceMotion ? 100 : 520;
-  const TARGET_VISIBLE_MS = reduceMotion ? 180 : 920;
-  const HARD_FAILSAFE_MS = reduceMotion ? 350 : 1450;
+  const DISPLAY_MS = reduceMotion ? 360 : 2850;
+  const HARD_FAILSAFE_MS = reduceMotion ? 700 : 3650;
 
   window.MDC_MEDIA = MEDIA;
 
   let activeSplash = null;
   let startedAt = 0;
+  let startedWallAt = 0;
   let catalogReady = false;
-  let dismissTimer = 0;
+  let rafId = 0;
+  let finishTimer = 0;
   let hardTimer = 0;
+  let booted = false;
 
   function isHome() {
     const path = location.pathname.replace(/\/+$/, '');
@@ -65,13 +67,22 @@
     document.head.appendChild(css);
   }
 
-  function loadLayers() {
+  function loadSecondaryLayers() {
     loadCssOnce('marketplace-experience.css?v=4', 'mdc-marketplace');
     loadCssOnce('social-contact.css?v=3', 'mdc-contact');
     loadScriptOnce('marketplace-experience.js?v=4', 'mdc-marketplace-js');
     loadScriptOnce('social-contact.js?v=3', 'mdc-contact-js');
-    loadScriptOnce('app-update.js?v=16', 'mdc-app-update');
+    loadScriptOnce('app-update.js?v=18', 'mdc-app-update');
     loadScriptOnce('app-integrity.js?v=3', 'mdc-app-integrity');
+  }
+
+  function scheduleSecondaryLayers() {
+    const run = () => loadSecondaryLayers();
+    if ('requestIdleCallback' in window) {
+      requestIdleCallback(run, { timeout: 1200 });
+    } else {
+      window.setTimeout(run, 500);
+    }
   }
 
   function ensureBrandStyle() {
@@ -116,13 +127,18 @@
   }
 
   function warmCriticalAssets() {
-    ['assets/p-taladro.png', 'assets/p-amoladora.png', 'assets/p-cemento.png', 'assets/p-cable.png'].forEach(warmImage);
+    [MEDIA.logo, MEDIA.truck, 'assets/p-taladro.png', 'assets/p-amoladora.png', 'assets/p-cemento.png', 'assets/p-cable.png'].forEach(warmImage);
+
     try {
       if (typeof LiveCatalog !== 'undefined' && typeof LiveCatalog.load === 'function') {
         LiveCatalog.load().catch(() => null);
       }
     } catch (_) {}
-    fetch('catalog.snapshot.json?v=5', { cache: 'force-cache', headers: { Accept: 'application/json' } }).catch(() => null);
+
+    fetch('catalog.snapshot.json?v=6', {
+      cache: 'force-cache',
+      headers: { Accept: 'application/json' }
+    }).catch(() => null);
   }
 
   function setStatus(text) {
@@ -130,53 +146,74 @@
     if (el) el.textContent = text;
   }
 
-  function clearTimers() {
-    if (dismissTimer) window.clearTimeout(dismissTimer);
+  function clearRuntime() {
+    if (rafId) cancelAnimationFrame(rafId);
+    if (finishTimer) window.clearTimeout(finishTimer);
     if (hardTimer) window.clearTimeout(hardTimer);
-    dismissTimer = 0;
+    rafId = 0;
+    finishTimer = 0;
     hardTimer = 0;
   }
 
   function forceRemoveSplash() {
-    clearTimers();
+    clearRuntime();
     document.body?.classList.remove('mdc-splash-lock');
+    document.documentElement.classList.add('mdc-splash-done');
     document.querySelectorAll('.mdc-splash').forEach(node => {
-      node.style.setProperty('animation', 'none', 'important');
+      node.style.setProperty('display', 'none', 'important');
       node.style.setProperty('pointer-events', 'none', 'important');
-      node.style.setProperty('opacity', '0', 'important');
-      node.style.setProperty('visibility', 'hidden', 'important');
       node.remove();
     });
     activeSplash = null;
   }
 
-  function dismissSplash() {
+  function setProgress(value) {
+    const node = activeSplash;
+    if (!node?.isConnected) return;
+
+    const progress = Math.min(1, Math.max(0.025, Number(value) || 0.025));
+    const bar = node.querySelector('.mdc-splash-bar-mask');
+    const stage = node.querySelector('.mdc-splash-stage');
+    const truck = node.querySelector('.mdc-splash-truck');
+
+    if (bar) bar.style.transform = `scaleX(${progress})`;
+
+    if (stage && truck) {
+      const travel = Math.max(0, stage.clientWidth - truck.offsetWidth);
+      truck.style.transform = `translate3d(${Math.round(travel * progress)}px,0,0)`;
+    }
+
+    node.style.setProperty('--mdc-progress', String(progress));
+  }
+
+  function finishSplash() {
     const node = activeSplash;
     if (!node?.isConnected) {
       forceRemoveSplash();
       return;
     }
 
-    node.style.setProperty('animation', 'none', 'important');
-    node.style.setProperty('pointer-events', 'none', 'important');
-    node.style.setProperty('opacity', '0', 'important');
-    node.style.setProperty('visibility', 'hidden', 'important');
-    node.style.setProperty('-webkit-backdrop-filter', 'none', 'important');
-    node.style.setProperty('backdrop-filter', 'none', 'important');
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = 0;
+    setProgress(1);
+    setStatus(catalogReady ? 'Catálogo listo' : 'Entrando a MDC');
     node.classList.add('is-exiting');
-    document.body?.classList.remove('mdc-splash-lock');
-
-    dismissTimer = window.setTimeout(forceRemoveSplash, 190);
+    node.style.setProperty('pointer-events', 'none', 'important');
+    finishTimer = window.setTimeout(forceRemoveSplash, reduceMotion ? 20 : 220);
   }
 
-  function maybeDismiss() {
+  function tick(now) {
     if (!activeSplash?.isConnected) return;
-    const elapsed = Date.now() - startedAt;
-    if (elapsed < MIN_VISIBLE_MS) {
-      dismissTimer = window.setTimeout(maybeDismiss, MIN_VISIBLE_MS - elapsed);
+    const elapsed = Math.max(0, now - startedAt);
+    const progress = Math.min(1, elapsed / DISPLAY_MS);
+    setProgress(progress);
+
+    if (progress >= 1) {
+      finishSplash();
       return;
     }
-    if (catalogReady || elapsed >= TARGET_VISIBLE_MS) dismissSplash();
+
+    rafId = requestAnimationFrame(tick);
   }
 
   function buildSplash() {
@@ -217,62 +254,68 @@
 
   function showSplash() {
     forceRemoveSplash();
-    if (!isHome() || safeSessionGet(SESSION_KEY) === '1') return false;
-    safeSessionSet(SESSION_KEY, '1');
+    document.documentElement.classList.remove('mdc-splash-done');
 
+    if (!isHome() || safeSessionGet(SESSION_KEY) === '1') {
+      document.documentElement.classList.add('mdc-splash-done');
+      return false;
+    }
+
+    safeSessionSet(SESSION_KEY, '1');
     catalogReady = false;
     activeSplash = buildSplash();
-    startedAt = Date.now();
     document.body.appendChild(activeSplash);
-
-    hardTimer = window.setTimeout(forceRemoveSplash, HARD_FAILSAFE_MS);
-    dismissTimer = window.setTimeout(maybeDismiss, TARGET_VISIBLE_MS);
+    startedAt = performance.now();
+    startedWallAt = Date.now();
+    setProgress(0.025);
 
     document.addEventListener('mdc:catalog-ready', () => {
       catalogReady = true;
       setStatus('Catálogo listo');
-      maybeDismiss();
     }, { once: true });
 
     try {
       if (typeof LiveCatalog !== 'undefined' && LiveCatalog.loaded && LiveCatalog.products?.length) {
         catalogReady = true;
-        maybeDismiss();
+        setStatus('Catálogo listo');
       }
     } catch (_) {}
 
-    window.addEventListener('pagehide', forceRemoveSplash, { once: true });
+    rafId = requestAnimationFrame(tick);
+    hardTimer = window.setTimeout(forceRemoveSplash, HARD_FAILSAFE_MS);
     return true;
   }
 
   function recover() {
     const splash = document.querySelector('.mdc-splash');
     if (!splash) return;
-    const age = Date.now() - Number(splash.dataset.startedAt || 0);
+    const age = Date.now() - Number(splash.dataset.startedAt || startedWallAt || 0);
     if (!Number.isFinite(age) || age >= HARD_FAILSAFE_MS) forceRemoveSplash();
   }
 
   function boot() {
+    if (booted) return;
+    booted = true;
     preconnect();
     ensureBrandStyle();
     setPremiumBrandImages();
     showSplash();
-
-    /* Precarga en paralelo: nunca condiciona la salida del splash. */
-    loadLayers();
     warmCriticalAssets();
-
+    scheduleSecondaryLayers();
     window.addEventListener('load', setPremiumBrandImages, { once: true });
   }
 
-  window.addEventListener('pageshow', recover);
+  window.addEventListener('pagehide', forceRemoveSplash, { once: true });
+  window.addEventListener('pageshow', event => {
+    if (event.persisted) forceRemoveSplash();
+    else recover();
+  });
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') recover();
   });
   window.addEventListener('error', recover, true);
   window.addEventListener('unhandledrejection', recover);
-  window.setTimeout(recover, HARD_FAILSAFE_MS + 100);
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
-  else boot();
+  if (document.body) boot();
+  else document.addEventListener('DOMContentLoaded', boot, { once: true });
 })();
