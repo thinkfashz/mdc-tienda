@@ -1,4 +1,4 @@
-/* MDC Ferretería · Gaussian Splash v20 · navegación + sonido de camión */
+/* MDC Ferretería · Gaussian Splash v21 · navegación fluida sin sonido */
 (() => {
   const MEDIA = Object.freeze({
     logo: 'https://res.cloudinary.com/disghf6xc/image/upload/f_auto,q_auto,w_620/v1788685244/mdc-premium-logo.png',
@@ -6,15 +6,14 @@
   });
 
   const API_ORIGIN = 'https://mdc-app-dun.vercel.app';
-  const FIRST_HOME_KEY = 'mdc-premium-splash-v20';
-  const SKIP_ARRIVAL_KEY = 'mdc-nav-skip-arrival-v20';
-  const SOUND_KEY = 'mdc-truck-sound-enabled-v1';
+  const FIRST_HOME_KEY = 'mdc-premium-splash-v21';
+  const NAV_PENDING_KEY = 'mdc-nav-arrival-v21';
   const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
   const INITIAL_DISPLAY_MS = reduceMotion ? 360 : 2850;
-  const ARRIVAL_DISPLAY_MS = reduceMotion ? 180 : 720;
-  const NAV_DISPLAY_MS = reduceMotion ? 260 : 980;
-  const HARD_PAD_MS = reduceMotion ? 260 : 850;
+  const NAV_ARRIVAL_MS = reduceMotion ? 150 : 480;
+  const DIRECT_ARRIVAL_MS = reduceMotion ? 120 : 360;
+  const HARD_PAD_MS = reduceMotion ? 220 : 650;
 
   window.MDC_MEDIA = MEDIA;
 
@@ -27,9 +26,8 @@
   let rafId = 0;
   let finishTimer = 0;
   let hardTimer = 0;
-  let navigationTimer = 0;
   let booted = false;
-  let navigating = false;
+  let completionSent = false;
 
   function normalizedPath(pathname) {
     const clean = String(pathname || '/').replace(/\/+$/, '') || '/';
@@ -51,106 +49,6 @@
   function safeSessionRemove(key) {
     try { sessionStorage.removeItem(key); } catch (_) {}
   }
-
-  function safeLocalGet(key) {
-    try { return localStorage.getItem(key); } catch (_) { return null; }
-  }
-
-  function safeLocalSet(key, value) {
-    try { localStorage.setItem(key, value); } catch (_) {}
-  }
-
-  function soundEnabled() {
-    return safeLocalGet(SOUND_KEY) !== '0';
-  }
-
-  /*
-    Sonido generado con Web Audio: no descarga MP3, no añade peso ni dependencia.
-    Los navegadores permiten el sonido en los cambios iniciados por toque/clic.
-  */
-  function playTruckSound() {
-    if (!soundEnabled()) return;
-    const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContextCtor) return;
-
-    try {
-      const ctx = new AudioContextCtor();
-      if (ctx.state === 'suspended') ctx.resume().catch(() => null);
-      const now = ctx.currentTime;
-      const end = now + 0.92;
-
-      const master = ctx.createGain();
-      master.gain.setValueAtTime(0.0001, now);
-      master.gain.exponentialRampToValueAtTime(0.085, now + 0.045);
-      master.gain.setValueAtTime(0.078, now + 0.58);
-      master.gain.exponentialRampToValueAtTime(0.0001, end);
-      master.connect(ctx.destination);
-
-      const engineFilter = ctx.createBiquadFilter();
-      engineFilter.type = 'lowpass';
-      engineFilter.frequency.setValueAtTime(235, now);
-      engineFilter.frequency.linearRampToValueAtTime(330, now + 0.55);
-      engineFilter.Q.value = 0.8;
-      engineFilter.connect(master);
-
-      const engineGain = ctx.createGain();
-      engineGain.gain.value = 0.34;
-      engineGain.connect(engineFilter);
-
-      const engine = ctx.createOscillator();
-      engine.type = 'sawtooth';
-      engine.frequency.setValueAtTime(54, now);
-      engine.frequency.exponentialRampToValueAtTime(82, now + 0.56);
-      engine.frequency.exponentialRampToValueAtTime(64, end);
-      engine.connect(engineGain);
-
-      const subGain = ctx.createGain();
-      subGain.gain.value = 0.14;
-      subGain.connect(engineFilter);
-
-      const sub = ctx.createOscillator();
-      sub.type = 'square';
-      sub.frequency.setValueAtTime(27, now);
-      sub.frequency.exponentialRampToValueAtTime(41, now + 0.56);
-      sub.frequency.exponentialRampToValueAtTime(32, end);
-      sub.connect(subGain);
-
-      const noiseBuffer = ctx.createBuffer(1, Math.max(1, Math.floor(ctx.sampleRate * 0.78)), ctx.sampleRate);
-      const noiseData = noiseBuffer.getChannelData(0);
-      for (let i = 0; i < noiseData.length; i += 1) noiseData[i] = (Math.random() * 2 - 1) * 0.55;
-
-      const noise = ctx.createBufferSource();
-      noise.buffer = noiseBuffer;
-      const noiseFilter = ctx.createBiquadFilter();
-      noiseFilter.type = 'bandpass';
-      noiseFilter.frequency.value = 420;
-      noiseFilter.Q.value = 0.65;
-      const noiseGain = ctx.createGain();
-      noiseGain.gain.setValueAtTime(0.018, now);
-      noiseGain.gain.linearRampToValueAtTime(0.045, now + 0.55);
-      noiseGain.gain.exponentialRampToValueAtTime(0.0001, end);
-      noise.connect(noiseFilter);
-      noiseFilter.connect(noiseGain);
-      noiseGain.connect(master);
-
-      engine.start(now);
-      sub.start(now);
-      noise.start(now);
-      engine.stop(end);
-      sub.stop(end);
-      noise.stop(end);
-
-      window.setTimeout(() => ctx.close().catch(() => null), 1150);
-    } catch (_) {}
-  }
-
-  window.MDC_TRUCK_SOUND = Object.freeze({
-    play: playTruckSound,
-    setEnabled(enabled) {
-      safeLocalSet(SOUND_KEY, enabled ? '1' : '0');
-    },
-    isEnabled: soundEnabled
-  });
 
   function preconnectOrigin(href, key) {
     if (document.querySelector(`link[data-mdc-preconnect="${key}"]`)) return;
@@ -190,14 +88,14 @@
     loadCssOnce('social-contact.css?v=3', 'mdc-contact');
     loadScriptOnce('marketplace-experience.js?v=4', 'mdc-marketplace-js');
     loadScriptOnce('social-contact.js?v=3', 'mdc-contact-js');
-    loadScriptOnce('app-update.js?v=20', 'mdc-app-update');
+    loadScriptOnce('app-update.js?v=21', 'mdc-app-update');
     loadScriptOnce('app-integrity.js?v=3', 'mdc-app-integrity');
   }
 
   function scheduleSecondaryLayers() {
     const run = () => loadSecondaryLayers();
     if ('requestIdleCallback' in window) requestIdleCallback(run, { timeout: 1200 });
-    else window.setTimeout(run, 500);
+    else window.setTimeout(run, 420);
   }
 
   function ensureBrandStyle() {
@@ -243,11 +141,11 @@
 
   function warmCriticalAssets() {
     [MEDIA.logo, MEDIA.truck, 'assets/p-taladro.png', 'assets/p-amoladora.png', 'assets/p-cemento.png', 'assets/p-cable.png'].forEach(warmImage);
-
     try {
-      if (typeof LiveCatalog !== 'undefined' && typeof LiveCatalog.load === 'function') LiveCatalog.load().catch(() => null);
+      if (typeof LiveCatalog !== 'undefined' && typeof LiveCatalog.load === 'function') {
+        LiveCatalog.load().catch(() => null);
+      }
     } catch (_) {}
-
     fetch('catalog.snapshot.json?v=6', {
       cache: 'force-cache',
       headers: { Accept: 'application/json' }
@@ -268,6 +166,12 @@
     hardTimer = 0;
   }
 
+  function announceComplete() {
+    if (completionSent) return;
+    completionSent = true;
+    try { document.dispatchEvent(new CustomEvent('mdc:splash-complete')); } catch (_) {}
+  }
+
   function forceRemoveSplash() {
     clearRuntime();
     document.body?.classList.remove('mdc-splash-lock');
@@ -278,17 +182,16 @@
       node.remove();
     });
     activeSplash = null;
+    announceComplete();
   }
 
   function setProgress(value) {
     const node = activeSplash;
     if (!node?.isConnected) return;
-
     const progress = Math.min(1, Math.max(0.025, Number(value) || 0.025));
     const bar = node.querySelector('.mdc-splash-bar-mask');
     const stage = node.querySelector('.mdc-splash-stage');
     const truck = node.querySelector('.mdc-splash-truck');
-
     if (bar) bar.style.transform = `scaleX(${progress})`;
     if (stage && truck) {
       const travel = Math.max(0, stage.clientWidth - truck.offsetWidth);
@@ -303,14 +206,13 @@
       forceRemoveSplash();
       return;
     }
-
     if (rafId) cancelAnimationFrame(rafId);
     rafId = 0;
     setProgress(1);
-    if (!navigating) setStatus(catalogReady ? 'Catálogo listo' : 'Entrando a MDC');
+    if (node.dataset.mode === 'initial') setStatus(catalogReady ? 'Catálogo listo' : 'Entrando a MDC');
     node.classList.add('is-exiting');
     node.style.setProperty('pointer-events', 'none', 'important');
-    finishTimer = window.setTimeout(forceRemoveSplash, reduceMotion ? 20 : 220);
+    finishTimer = window.setTimeout(forceRemoveSplash, reduceMotion ? 20 : 170);
   }
 
   function tick(now) {
@@ -318,7 +220,6 @@
     const elapsed = Math.max(0, now - startedAt);
     const progress = Math.min(1, elapsed / Math.max(1, currentDisplayMs));
     setProgress(progress);
-
     if (progress >= 1) {
       finishSplash();
       return;
@@ -326,7 +227,7 @@
     rafId = requestAnimationFrame(tick);
   }
 
-  function buildSplash(status = 'Preparando catálogo', mode = 'arrival') {
+  function buildSplash(status = 'Abriendo MDC', mode = 'arrival') {
     const splash = document.createElement('div');
     splash.className = 'mdc-splash';
     splash.dataset.startedAt = String(Date.now());
@@ -364,13 +265,14 @@
   }
 
   function startSplash({ duration, status, catalogAware = false, mode = 'arrival' }) {
-    forceRemoveSplash();
+    clearRuntime();
+    document.querySelectorAll('.mdc-splash').forEach(node => node.remove());
     document.documentElement.classList.remove('mdc-splash-done');
+    completionSent = false;
     catalogReady = false;
-    currentDisplayMs = Math.max(120, Number(duration) || ARRIVAL_DISPLAY_MS);
+    currentDisplayMs = Math.max(100, Number(duration) || DIRECT_ARRIVAL_MS);
     currentHardMs = currentDisplayMs + HARD_PAD_MS;
     activeSplash = buildSplash(status, mode);
-    if (mode === 'navigation') activeSplash.style.setProperty('pointer-events', 'auto', 'important');
     document.body.appendChild(activeSplash);
     startedAt = performance.now();
     startedWallAt = Date.now();
@@ -379,20 +281,18 @@
     if (catalogAware) {
       document.addEventListener('mdc:catalog-ready', () => {
         catalogReady = true;
-        setStatus('Catálogo listo');
+        if (mode === 'initial') setStatus('Catálogo listo');
       }, { once: true });
-
       try {
         if (typeof LiveCatalog !== 'undefined' && LiveCatalog.loaded && LiveCatalog.products?.length) {
           catalogReady = true;
-          setStatus('Catálogo listo');
+          if (mode === 'initial') setStatus('Catálogo listo');
         }
       } catch (_) {}
     }
 
     rafId = requestAnimationFrame(tick);
     hardTimer = window.setTimeout(forceRemoveSplash, currentHardMs);
-    return true;
   }
 
   function navigationIdentity(urlLike) {
@@ -401,26 +301,6 @@
       return `${url.origin}${normalizedPath(url.pathname)}${url.search}`;
     } catch (_) {
       return '';
-    }
-  }
-
-  function markSkipArrival(url) {
-    safeSessionSet(SKIP_ARRIVAL_KEY, JSON.stringify({
-      destination: navigationIdentity(url),
-      at: Date.now()
-    }));
-  }
-
-  function consumeSkipArrival() {
-    const raw = safeSessionGet(SKIP_ARRIVAL_KEY);
-    if (!raw) return false;
-    safeSessionRemove(SKIP_ARRIVAL_KEY);
-    try {
-      const payload = JSON.parse(raw);
-      return Date.now() - Number(payload.at || 0) < 8000
-        && payload.destination === navigationIdentity(location.href);
-    } catch (_) {
-      return false;
     }
   }
 
@@ -437,52 +317,49 @@
     const anchor = event.target?.closest?.('a[href]');
     if (!anchor || anchor.hasAttribute('download')) return null;
     if (anchor.target && anchor.target.toLowerCase() !== '_self') return null;
-
     const raw = String(anchor.getAttribute('href') || '').trim();
     if (!raw || raw.startsWith('#') || /^(?:mailto:|tel:|sms:|javascript:)/i.test(raw)) return null;
-
     let url;
     try { url = new URL(anchor.href, location.href); } catch (_) { return null; }
     if (url.origin !== location.origin || sameDocumentHashNavigation(url)) return null;
     return url;
   }
 
-  function prefetchDestination(url) {
-    try {
-      fetch(url.href, {
-        method: 'GET',
-        cache: 'force-cache',
-        credentials: 'same-origin',
-        headers: { 'X-MDC-Prefetch': 'navigation' }
-      }).catch(() => null);
-    } catch (_) {}
-  }
-
-  function handleInternalNavigation(event) {
+  /*
+   * Importante: no bloqueamos el click ni esperamos un timer antes de navegar.
+   * Solo marcamos el destino. La pantalla con el camión se muestra al llegar,
+   * mientras el nuevo documento ya está montado. Así desaparece el tirón de ~1 s.
+   */
+  function markNavigationArrival(event) {
     const url = getInternalNavigation(event);
     if (!url) return;
-    event.preventDefault();
-    if (navigating) return;
+    safeSessionSet(NAV_PENDING_KEY, JSON.stringify({
+      destination: navigationIdentity(url),
+      at: Date.now()
+    }));
+  }
 
-    navigating = true;
-    markSkipArrival(url);
-    prefetchDestination(url);
-    playTruckSound();
-    startSplash({
-      duration: NAV_DISPLAY_MS,
-      status: 'Cargando sección',
-      catalogAware: false,
-      mode: 'navigation'
-    });
-
-    navigationTimer = window.setTimeout(() => {
-      location.assign(url.href);
-    }, NAV_DISPLAY_MS + (reduceMotion ? 20 : 70));
+  function consumeNavigationArrival() {
+    const raw = safeSessionGet(NAV_PENDING_KEY);
+    if (!raw) return false;
+    safeSessionRemove(NAV_PENDING_KEY);
+    try {
+      const payload = JSON.parse(raw);
+      return Date.now() - Number(payload.at || 0) < 10000
+        && payload.destination === navigationIdentity(location.href);
+    } catch (_) {
+      return false;
+    }
   }
 
   function showArrivalSplash() {
-    if (consumeSkipArrival()) {
-      document.documentElement.classList.add('mdc-splash-done');
+    if (consumeNavigationArrival()) {
+      startSplash({
+        duration: NAV_ARRIVAL_MS,
+        status: 'Cargando sección',
+        catalogAware: false,
+        mode: 'navigation'
+      });
       return;
     }
 
@@ -499,9 +376,9 @@
     }
 
     startSplash({
-      duration: ARRIVAL_DISPLAY_MS,
-      status: 'Abriendo sección',
-      catalogAware: true,
+      duration: DIRECT_ARRIVAL_MS,
+      status: 'Abriendo MDC',
+      catalogAware: false,
       mode: 'arrival'
     });
   }
@@ -519,33 +396,26 @@
     preconnect();
     ensureBrandStyle();
     setPremiumBrandImages();
+    document.addEventListener('click', markNavigationArrival, false);
     showArrivalSplash();
     warmCriticalAssets();
     scheduleSecondaryLayers();
-    document.addEventListener('click', handleInternalNavigation, false);
     window.addEventListener('load', setPremiumBrandImages, { once: true });
   }
 
-  window.addEventListener('pagehide', () => {
-    if (navigationTimer) window.clearTimeout(navigationTimer);
-    navigationTimer = 0;
-    forceRemoveSplash();
-  });
-
+  window.addEventListener('pagehide', forceRemoveSplash);
   window.addEventListener('pageshow', event => {
-    navigating = false;
     if (event.persisted) {
       startSplash({
-        duration: ARRIVAL_DISPLAY_MS,
+        duration: NAV_ARRIVAL_MS,
         status: 'Volviendo a MDC',
         catalogAware: false,
-        mode: 'arrival'
+        mode: 'navigation'
       });
     } else {
       recover();
     }
   });
-
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') recover();
   });
