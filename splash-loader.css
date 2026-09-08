@@ -34,7 +34,6 @@ body.mdc-splash-lock { overflow: auto !important; }
   overflow: hidden;
   isolation: isolate;
   contain: layout paint style;
-  animation: mdcSplashFailsafe 1.55s linear forwards;
 }
 
 .mdc-splash::before {
@@ -53,10 +52,11 @@ body.mdc-splash-lock { overflow: auto !important; }
 }
 
 .mdc-splash.is-exiting {
-  opacity: 0;
-  visibility: hidden;
-  -webkit-backdrop-filter: blur(0) saturate(1);
-  backdrop-filter: blur(0) saturate(1);
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
 }
 
 .mdc-splash-inner {
@@ -169,17 +169,12 @@ body.mdc-splash-lock { overflow: auto !important; }
   animation: mdcFadeUp .22s ease .24s forwards;
 }
 
-@keyframes mdcSplashFailsafe {
-  0%, 88% { opacity: 1; visibility: visible; }
-  100% { opacity: 0; visibility: hidden; }
-}
 @keyframes mdcLogoIn { to { opacity: 1; transform: translateY(0) scale(1); } }
 @keyframes mdcBarFill { to { width: 100%; } }
 @keyframes mdcTruckDrive { to { transform: translate3d(calc(min(82vw, 520px) - clamp(112px, 27vw, 152px)),0,0); } }
 @keyframes mdcWheelSpin { to { transform: rotate(360deg); } }
 @keyframes mdcFadeUp { to { opacity: 1; transform: translateY(0); } }
 
-/* Transición Gaussian de productos: el contenido aparece ya renderizado, no esperando la red. */
 .grid-products {
   transition: opacity .18s ease, filter .22s ease, transform .22s ease;
 }
@@ -302,6 +297,5 @@ body.mdc-splash-lock { overflow: auto !important; }
     animation-iteration-count: 1 !important;
     transition-duration: .01ms !important;
   }
-  .mdc-splash { animation: mdcSplashFailsafe .45s linear forwards !important; }
   .grid-products.is-rendering-products { filter: none; opacity: 1; transform: none; }
 }
