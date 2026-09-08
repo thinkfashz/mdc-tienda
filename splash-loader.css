@@ -1,3 +1,5 @@
+@import url('mobile-readable.css?v=1') screen and (max-width: 820px);
+
 /* MDC Ferretería · Gaussian Splash v18 + catálogo fluido */
 :root {
   --mdc-orange: #ff7200;
